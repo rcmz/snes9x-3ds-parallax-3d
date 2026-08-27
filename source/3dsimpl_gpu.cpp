@@ -319,6 +319,12 @@ void gpu3dsDrawTiledLayer(SLayer *layer, u16 *indices, int from, int to) {
 }
 
 void gpu3dsDrawLayers(SLayerList *list) {
+    const SStereoLayerState *stereo = &GPU3DSExt.stereo;
+
+    // Window masks live in screen space and are shared by every layer,
+    // so they are never shifted for stereo.
+    GPU3DS.currentRenderState.parallax = 0;
+
     // draw window_lr into depth buffer first
     SLayer *layer = &list->layers[LAYER_WINDOW_LR];
 
@@ -338,6 +344,8 @@ void gpu3dsDrawLayers(SLayerList *list) {
         for (int j = 0; j < list->layersTotalByTarget[i]; j++) {
             LAYER_ID id = list->layersByTarget[i][j];
             SLayer *layer = &list->layers[id];
+
+            GPU3DS.currentRenderState.parallax = stereo->eye * stereo->layerShift[id];
 
             int from = layer->sectionsOffset + (sub ? 0 : layer->sectionsByTarget[TARGET_SNES_SUB]);
             int to = from + layer->sectionsByTarget[i];
@@ -361,6 +369,8 @@ void gpu3dsDrawLayers(SLayerList *list) {
             }
         }
     }
+
+    GPU3DS.currentRenderState.parallax = 0;
 }
 
 void gpu3dsDrawMode7Texture()
@@ -440,6 +450,9 @@ void gpu3dsPrepareSnesScreenForNextFrame() {
     
     gpu3dsResetLayers(list);
 
+    GPU3DSExt.stereo.listsBuilt = false;
+    gpu3dsUpdateStereoLayerShifts();
+
     // flip snes VBOs to the alternate half of the buffer
     // make sure this is called BEFORE S9xMainLoop so that vertex writes go to different memory
 	gpu3dsPrepareListForNextFrame(&GPU3DS.vertices[VBO_SCENE_RECT], true);
@@ -454,12 +467,12 @@ void gpu3dsPrepareSnesScreenForNextFrame() {
     }
 }
 
-void gpu3dsDrawSnesScreen() {
-    SLayerList *list = &GPU3DSExt.layerList;
-
-    if (!list->verticesTotal || list->hasSkippedSections)
-        return;
-
+//---------------------------------------------------------
+// Groups this frame's committed sections by render target and
+// assigns each tiled layer its slice of the index buffer.
+// Deterministic, so the second (right-eye) pass reuses the result.
+//---------------------------------------------------------
+static void gpu3dsBuildSnesLayerDrawLists(SLayerList *list) {
     list->anythingOnSub = false;
     list->useDrawArraysForTiledLayers = true;
     list->layersTotalByTarget[TARGET_SNES_SUB] = 0;
@@ -516,8 +529,69 @@ void gpu3dsDrawSnesScreen() {
         }
     }
 
+}
+
+void gpu3dsDrawSnesScreen() {
+    SLayerList *list = &GPU3DSExt.layerList;
+
+    if (!list->verticesTotal || list->hasSkippedSections)
+        return;
+
+    if (!GPU3DSExt.stereo.listsBuilt) {
+        gpu3dsBuildSnesLayerDrawLists(list);
+        GPU3DSExt.stereo.listsBuilt = true;
+    }
+
     gpu3dsDrawMode7Texture();
     gpu3dsDrawLayers(list);
+}
+
+//---------------------------------------------------------
+// Draws the whole SNES frame for one eye. The vertex data is
+// built once per frame during emulation and replayed here, with
+// each layer shifted horizontally by its stereo parallax.
+// eye: -1 = left, +1 = right, 0 = flat.
+//---------------------------------------------------------
+void gpu3dsDrawSnesScreenForEye(int eye) {
+    GPU3DSExt.stereo.eye = GPU3DSExt.stereo.active ? (s8)eye : 0;
+
+    gpu3dsDrawSnesScreen();
+}
+
+//---------------------------------------------------------
+// Converts the per-game plane depths into a per-layer pixel
+// shift for the current 3D slider position. Called once per
+// frame so both eyes use the same values.
+//---------------------------------------------------------
+void gpu3dsUpdateStereoLayerShifts() {
+    SStereoLayerState *stereo = &GPU3DSExt.stereo;
+
+    memset(stereo->layerShift, 0, sizeof(stereo->layerShift));
+    stereo->active = false;
+    stereo->eye = 0;
+
+    // The 512px render path already uses the full width of the render
+    // target, leaving no room for the off-screen margin the shifted
+    // layers need, so per-layer depth is a standard-resolution feature.
+    if (!settings3DS.Depth3DEnabled || GPU3DSExt.render2x.enabled || screenshot.dirty)
+        return;
+
+    float strength = gpu3dsGetLayerDepthStrength();
+
+    if (strength <= 0.0f)
+        return;
+
+    for (int i = 0; i <= LAYER_OBJ; i++) {
+        int shift = (int)lroundf(settings3DS.Depth3D[i] * strength);
+
+        if (shift < PARALLAX_MIN) shift = PARALLAX_MIN;
+        if (shift > PARALLAX_MAX) shift = PARALLAX_MAX;
+
+        stereo->layerShift[i] = (s8)shift;
+
+        if (shift)
+            stereo->active = true;
+    }
 }
 
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub, bool reuseVertices) {

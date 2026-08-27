@@ -179,6 +179,32 @@ typedef struct
     bool            dirty;
 } SRender2xState;
 
+//---------------------------------------------------------
+// Per-layer stereoscopic parallax.
+//
+// The SNES composites a fixed set of hardware planes, so each
+// plane can be pushed to its own depth by giving it a horizontal
+// shift that is mirrored between the two eyes. The frame's vertex
+// data is built once and replayed per eye with a different shift
+// per layer, which keeps the SNES compositing rules (priority,
+// windows, colour math) exactly as they are in 2D.
+//---------------------------------------------------------
+typedef struct
+{
+    // Shift in SNES pixels applied to each layer for the right eye;
+    // the left eye uses the negated value. Index = LAYER_ID.
+    s8              layerShift[LAYERS_COUNT];
+
+    // -1 = left eye, +1 = right eye, 0 = flat (no per-layer shift)
+    s8              eye;
+
+    // true when at least one layer has a non-zero shift this frame
+    bool            active;
+
+    // the draw lists are built once per frame and replayed for the second eye
+    bool            listsBuilt;
+} SStereoLayerState;
+
 typedef struct
 {
     u16             vramCacheHashToTexturePosition[MAX_HASH + 1]; // 262146 bytes
@@ -197,6 +223,8 @@ typedef struct
     SRender2xState  render2x;       // 512px internal SNES render path:
                                     // true hires for Mode 5, finer Mode 7 sampling, doubled geometry elsewhere
     int             renderWidth;    // 512 when render2x.enabled, else 256
+
+    SStereoLayerState stereo;       // per-layer stereoscopic parallax
 } SGPU3DSExtended;
 
 extern SGPU3DSExtended GPU3DSExt;
@@ -206,6 +234,8 @@ void gpu3dsResetLayerSectionLimits(SLayerList *list);
 void gpu3dsInitLayers();
 void gpu3dsPrepareSnesScreenForNextFrame();
 void gpu3dsDrawSnesScreen();
+void gpu3dsUpdateStereoLayerShifts();
+void gpu3dsDrawSnesScreenForEye(int eye);
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub = false, bool reuseVertices = false);
 
 void gpu3dsSetMode7TexturesPixelFormat(GPU_TEXCOLOR fmt);

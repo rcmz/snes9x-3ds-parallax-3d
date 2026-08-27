@@ -75,6 +75,9 @@ void settings3dsResetGameDefaults() {
     settings3DS.PaletteDeferBgMask = 0;
     settings3DS.Mode7BilinearFilter = false;
 
+    settings3DS.Depth3DEnabled = false;
+    memset(settings3DS.Depth3D, 0, sizeof(settings3DS.Depth3D));
+
     memset(settings3DS.LayerEnabled, true, sizeof(settings3DS.LayerEnabled));
 
     settings3DS.EnhancedResolution = Setting::EnhancedResolution::Off;

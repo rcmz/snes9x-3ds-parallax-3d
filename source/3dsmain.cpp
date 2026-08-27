@@ -758,6 +758,62 @@ const std::vector<SMenuItem>& makeOptionsForScreenFilter() {
     return items;
 }
 
+//---------------------------------------------------------
+// Per-game stereoscopic depth for the SNES hardware planes.
+//
+// The SNES draws a fixed set of planes and games use them for
+// parallax, so each plane can be placed at its own depth on the
+// 3DS' autostereoscopic screen. Depth is per game because only
+// the game knows which plane is scenery, backdrop or HUD.
+//---------------------------------------------------------
+static void makeLayerDepth3DMenu(std::vector<SMenuItem>& items) {
+    if (!gpu3dsIs3DAvailable() || settings3DS.GameScreen != GFX_TOP)
+        return;
+
+    AddMenuHeader2(items, "3D Depth"_s);
+
+    bool enhancedResolutionOn = settings3DS.EnhancedResolution != Setting::EnhancedResolution::Off;
+
+    if (enhancedResolutionOn) {
+        AddMenuDisabledOption(items, "  Per-Layer 3D Depth (needs Enhanced Resolution off)"_s);
+        AddMenuDisabledOption(items, ""_s);
+
+        return;
+    }
+
+    AddMenuCheckbox(items, "  Per-Layer 3D Depth"_s, settings3DS.Depth3DEnabled,
+        []( int val ) {
+            bool wasShown = settings3DS.Depth3DEnabled;
+            if (CheckAndUpdateToggle(settings3DS.Depth3DEnabled, val)) {
+                menu3dsSetScreenDirty();
+                if (wasShown != settings3DS.Depth3DEnabled)
+                    menu3dsMarkTabDirty(TAB_SETTINGS);
+            }
+        });
+
+    if (!settings3DS.Depth3DEnabled) {
+        items.emplace_back(nullptr, MenuItemType::Textarea, "  Places each SNES plane at its own depth."_s, ""_s);
+        AddMenuDisabledOption(items, ""_s);
+
+        return;
+    }
+
+    static const char *depthNames[LAYER_OBJ + 1] = { "  BG1", "  BG2", "  BG3", "  BG4", "  Sprites" };
+
+    for (int layer = LAYER_BG0; layer <= LAYER_OBJ; layer++) {
+        AddMenuGauge(items, depthNames[layer], -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[layer],
+            [layer]( int val ) {
+                if (CheckAndUpdate(settings3DS.Depth3D[layer], (s8)val))
+                    menu3dsSetScreenDirty();
+            }, true);
+    }
+
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  0 = at the screen, higher = further back."_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  Pause in-game to preview while adjusting."_s, ""_s);
+
+    AddMenuDisabledOption(items, ""_s);
+}
+
 void makeOptionMenu(std::vector<SMenuItem>& items, std::vector<SMenuTab>& menuTabs, int& currentMenuTab) {
     items.clear();
 
@@ -802,6 +858,8 @@ void makeOptionMenu(std::vector<SMenuItem>& items, std::vector<SMenuTab>& menuTa
         });
 
     AddMenuDisabledOption(items, ""_s);
+
+    makeLayerDepth3DMenu(items);
 
     AddMenuCheckbox(items, "  Crop & Overscan"_s, settings3DS.CropEnabled,
         []( int val ) {
@@ -1261,6 +1319,18 @@ bool settingsReadWriteFullListByGame(bool writeMode)
     if (writeMode || detectedConfigVersion >= 1.5f) {
         config3dsReadWriteEnum(stream, writeMode, "EnhancedResolution=%d\n", &settings3DS.EnhancedResolution, 0, 2);
         config3dsReadWriteEnum(stream, writeMode, "PaletteDeferBgMask=%d\n", &settings3DS.PaletteDeferBgMask, 0, 7);
+    }
+
+    if (writeMode || detectedConfigVersion >= 1.6f) {
+        config3dsReadWriteEnum(stream, writeMode, "Depth3DEnabled=%d\n", &settings3DS.Depth3DEnabled, 0, 1);
+
+        static const char *depth3DKey[LAYER_OBJ + 1] = {
+            "Depth3DBG1=%d\n", "Depth3DBG2=%d\n", "Depth3DBG3=%d\n", "Depth3DBG4=%d\n", "Depth3DOBJ=%d\n"
+        };
+
+        for (int layer = LAYER_BG0; layer <= LAYER_OBJ; layer++) {
+            config3dsReadWriteEnum(stream, writeMode, depth3DKey[layer], &settings3DS.Depth3D[layer], -DEPTH3D_MAX, DEPTH3D_MAX);
+        }
     }
 
     config3dsReadWriteInt32(stream, writeMode, "Frameskips=%d\n", &settings3DS.MaxFrameSkips, 0, 4);

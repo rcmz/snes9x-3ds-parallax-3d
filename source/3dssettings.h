@@ -1,6 +1,9 @@
 #ifndef _3DSSETTINGS_H_
 #define _3DSSETTINGS_H_
 
+// Largest per-plane depth the UI allows, in SNES pixels of parallax.
+#define DEPTH3D_MAX     12
+
 #include <stdio.h>
 #include <array>
 #include <limits.h>
@@ -199,6 +202,14 @@ typedef struct {
 
     u8                  PaletteDeferBgMask;     // Advanced: skip re-rendering these BG layers on mid-frame
                                                 // palette changes (bit i = LAYER_BGi). 0 - render all.
+
+    bool                Depth3DEnabled;         // Per-layer stereoscopic depth: give each SNES plane
+                                                // its own depth instead of a flat game screen.
+
+    s8                  Depth3D[5];             // Depth of each plane, index = LAYER_ID (BG1-4, OBJ).
+                                                // Unit is SNES pixels of parallax at a fully open 3D
+                                                // slider: 0 = at the screen, > 0 = behind it,
+                                                // < 0 = in front of it.
 
     bool                Mode7BilinearFilter;    // Bilinear filter for the Mode 7 background
                                                 // texture. Default false; opt-in because it

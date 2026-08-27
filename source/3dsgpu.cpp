@@ -72,6 +72,26 @@ float gpu3dsGetIODBase()
     return 3.0f;
 }
 
+//---------------------------------------------------------
+// Scale applied to the per-game plane depths: the physical 3D
+// slider position times the user's 3D intensity preference.
+// Returns 0 when the top screen is not in 3D mode.
+//---------------------------------------------------------
+float gpu3dsGetLayerDepthStrength()
+{
+    if (GPU3DS.topMode != TOP_MODE_3D)
+        return 0.0f;
+
+    float intensity = 1.0f;
+
+    if (settings3DS.Intensity3D == Setting::Intensity3D::High)
+        intensity = 2.0f;
+    else if (settings3DS.Intensity3D == Setting::Intensity3D::Medium)
+        intensity = 1.5f;
+
+    return osGet3DSliderState() * intensity;
+}
+
 bool gpu3dsIs3DAvailable()
 {
     return GPU3DS.model != CFG_MODEL_2DS
@@ -323,8 +343,29 @@ void gpu3dsSetFragmentOperations(SGPURenderState *state, u64 diff) {
     }
 }
 
+//---------------------------------------------------------
+// Uploads the projection matrix for a texture render target,
+// shifted horizontally by the layer's stereo parallax (in SNES
+// pixels). The shift is applied to the projection rather than to
+// the vertices so that the same vertex data can be replayed for
+// both eyes.
+//---------------------------------------------------------
+void gpu3dsUploadTargetProjection(SGPUTexture *targetFromTex, int parallax)
+{
+    if (parallax == 0) {
+        C3D_FVUnifMtx4x4(GPU_GEOMETRY_SHADER, GPU3DS.shaderULocs[ULOC_PROJECTION], &targetFromTex->projection);
+    } else {
+        C3D_Mtx projection = targetFromTex->projection;
+        Mtx_Translate(&projection, (float)parallax, 0.0f, 0.0f, true);
+        C3D_FVUnifMtx4x4(GPU_GEOMETRY_SHADER, GPU3DS.shaderULocs[ULOC_PROJECTION], &projection);
+    }
+
+    GPU3DS.currentRenderTargetDim = targetFromTex->tex.dim;
+}
+
 void gpu3dsSetShaderAndUniforms(SGPURenderState *state, u64 diff, bool targetUpdated, bool textureUpdated) {
     bool shaderUpdated = diff & PACKED_MASK_SHADER;
+    bool parallaxUpdated = diff & PACKED_MASK_PARALLAX;
 
     if (shaderUpdated) {
         C3D_BindProgram(&GPU3DS.shaders[state->shader].shaderProgram);
@@ -334,7 +375,7 @@ void gpu3dsSetShaderAndUniforms(SGPURenderState *state, u64 diff, bool targetUpd
     }
 
     // set projection
-    if (targetUpdated || shaderUpdated)
+    if (targetUpdated || shaderUpdated || parallaxUpdated)
     {
         if (state->target == TARGET_SCREEN_GAME || state->target == TARGET_SCREEN_SECOND) {
             gfxScreen_t screen = state->target == TARGET_SCREEN_GAME ? settings3DS.GameScreen : settings3DS.SecondScreen;
@@ -343,9 +384,8 @@ void gpu3dsSetShaderAndUniforms(SGPURenderState *state, u64 diff, bool targetUpd
         } else {
             SGPUTexture *targetFromTex = &GPU3DS.textures[(SGPU_TEXTURE_ID)state->target];
 
-            if (targetFromTex->tex.dim != GPU3DS.currentRenderTargetDim) {
-                C3D_FVUnifMtx4x4(GPU_GEOMETRY_SHADER, GPU3DS.shaderULocs[ULOC_PROJECTION], &targetFromTex->projection);
-                GPU3DS.currentRenderTargetDim = targetFromTex->tex.dim;
+            if (targetFromTex->tex.dim != GPU3DS.currentRenderTargetDim || parallaxUpdated) {
+                gpu3dsUploadTargetProjection(targetFromTex, state->parallax);
             }
         }
     }

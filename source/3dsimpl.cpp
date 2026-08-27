@@ -849,12 +849,23 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 		gpu3dsClearScreen(settings3DS.GameScreen, renderRightEye);
 	}
 
+	// While paused the emulator is not producing new frames, but the last
+	// frame's geometry is still in the vertex buffers, so both eyes are
+	// redrawn from it. That makes depth changes in the menu visible live.
+	if (GPU3DSExt.stereo.active && paused)
+		gpu3dsDrawSnesScreenForEye(-1);
+
 	GPU3DS.activeSide = GFX_LEFT;
 	impl3dsSceneRenderEye(firstFrame, paused, list, gameScreenViewport, drawBackground, balancedFilterEnabled, -iod);
 
 	if (renderRightEye) {
 		GPU3DS.activeSide = GFX_RIGHT;
 		GPU3DS.appliedRenderState.target = TARGET_UNSET;
+
+		// The left eye has already been sampled into its framebuffer, so the
+		// SNES render target can be redrawn with the right eye's parallax.
+		if (GPU3DSExt.stereo.active)
+			gpu3dsDrawSnesScreenForEye(1);
 
 		impl3dsSceneRenderEye(firstFrame, paused, list, gameScreenViewport, drawBackground, balancedFilterEnabled, iod);
 
@@ -889,7 +900,7 @@ void impl3dsRunOneFrame(bool firstFrame, bool skipDrawingFrame)
 	gpu3dsFrameBegin(screenshot.dirty ? C3D_FRAME_SYNCDRAW : 0, !skipDrawingFrame);
 		if (!firstFrame && !skipDrawingFrame) {
 			t3dsStartTimer(TIMER_DRAW_SNES_SCREEN);
-    		gpu3dsDrawSnesScreen();
+    		gpu3dsDrawSnesScreenForEye(-1);
 			t3dsStopTimer(TIMER_DRAW_SNES_SCREEN);
 		}
 
