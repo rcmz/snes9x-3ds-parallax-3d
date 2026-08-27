@@ -204,6 +204,25 @@ bool impl3dsInitialize()
 	setDepthBufferByTex(GPU3DS.textures[SNES_MAIN].target, &GPU3DS.textures[SNES_DEPTH].tex);
 	setDepthBufferByTex(GPU3DS.textures[SNES_SUB].target, &GPU3DS.textures[SNES_DEPTH].tex);
 
+	// Second SNES screen, for the right eye's per-layer depth pass. It is the
+	// last thing to claim VRAM and the emulator runs fine without it, so a
+	// failed allocation only costs the per-layer 3D feature.
+	const SGPUTextureConfig screenRightTexConfig = { defaultTextureParams, SNES_MAIN, GPU_RGBA8, 512, 256 };
+	SGPUTexture *screenRight = &GPU3DSExt.stereo.screenRight;
+
+	// A model without a 3D screen can never use it, and VRAM is nearly full.
+	GPU3DSExt.stereo.supported = gpu3dsIs3DAvailable()
+		&& gpu3dsAllocVramTextureAndTarget(screenRight, &screenRightTexConfig);
+	GPU3DSExt.stereo.screenSide = GFX_LEFT;
+
+	if (GPU3DSExt.stereo.supported) {
+		setDepthBufferByTex(screenRight->target, &GPU3DS.textures[SNES_DEPTH].tex);
+		log3dsWrite("ingame vram texture \"main right eye\" dim: %dx%d, size:%.2fkb",
+			screenRight->tex.width, screenRight->tex.height, (float)screenRight->tex.size / 1024);
+	} else {
+		log3dsWrite("no vram for the right eye SNES screen; per-layer 3D depth unavailable");
+	}
+
 	const SGPUTextureConfig lramTexConfig[] = {
 		{ defaultTextureParams, SNES_TILE_CACHE, GPU_RGBA5551, 1024, 1024 },
 		{ defaultTextureParams, SNES_MODE7_TILE_CACHE, GPU_RGBA5551, 128, 128 }
@@ -699,6 +718,10 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, SVertexList *lis
 		gameScreenViewport.tx0, gameScreenViewport.ty0,
 		gameScreenViewport.tx1, gameScreenViewport.ty1, 0);
 
+	// Sample this eye's own copy of the SNES screen.
+	if (GPU3DSExt.stereo.active)
+		gpu3dsSelectSnesScreenEye(GPU3DS.activeSide);
+
 	GPU3DS.currentRenderState.textureEnv = TEX_ENV_REPLACE_TEXTURE0;
 	GPU3DS.currentRenderState.textureBind = SNES_MAIN;
 
@@ -854,8 +877,10 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 	// While paused the emulator is not producing new frames, but the last
 	// frame's geometry is still in the vertex buffers, so both eyes are
 	// redrawn from it. That makes depth changes in the menu visible live.
-	if (GPU3DSExt.stereo.active && paused)
-		gpu3dsDrawSnesScreenForEye(-1);
+	if (GPU3DSExt.stereo.active && paused) {
+		gpu3dsDrawSnesScreenForEye(GFX_LEFT);
+		gpu3dsDrawSnesScreenForEye(GFX_RIGHT);
+	}
 
 	GPU3DS.activeSide = GFX_LEFT;
 	impl3dsSceneRenderEye(firstFrame, paused, list, gameScreenViewport, drawBackground, balancedFilterEnabled, -iod);
@@ -863,11 +888,6 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 	if (renderRightEye) {
 		GPU3DS.activeSide = GFX_RIGHT;
 		GPU3DS.appliedRenderState.target = TARGET_UNSET;
-
-		// The left eye has already been sampled into its framebuffer, so the
-		// SNES render target can be redrawn with the right eye's parallax.
-		if (GPU3DSExt.stereo.active)
-			gpu3dsDrawSnesScreenForEye(1);
 
 		impl3dsSceneRenderEye(firstFrame, paused, list, gameScreenViewport, drawBackground, balancedFilterEnabled, iod);
 
@@ -902,7 +922,11 @@ void impl3dsRunOneFrame(bool firstFrame, bool skipDrawingFrame)
 	gpu3dsFrameBegin(screenshot.dirty ? C3D_FRAME_SYNCDRAW : 0, !skipDrawingFrame);
 		if (!firstFrame && !skipDrawingFrame) {
 			t3dsStartTimer(TIMER_DRAW_SNES_SCREEN);
-    		gpu3dsDrawSnesScreenForEye(-1);
+    		gpu3dsDrawSnesScreenForEye(GFX_LEFT);
+
+			// Each eye needs the frame drawn with its own per-layer shifts.
+			if (GPU3DSExt.stereo.active)
+				gpu3dsDrawSnesScreenForEye(GFX_RIGHT);
 			t3dsStopTimer(TIMER_DRAW_SNES_SCREEN);
 		}
 

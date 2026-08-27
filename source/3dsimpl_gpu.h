@@ -195,7 +195,8 @@ typedef struct
     // the left eye uses the negated value. Index = LAYER_ID.
     s8              layerShift[LAYERS_COUNT];
 
-    // -1 = left eye, +1 = right eye, 0 = flat (no per-layer shift)
+    // Sign of the shift for the eye currently being drawn:
+    // -1 = left, +1 = right, 0 = flat (no per-layer shift)
     s8              eye;
 
     // Extra pixels rendered outside the visible SNES width, so that a layer
@@ -206,6 +207,20 @@ typedef struct
 
     // true when at least one layer has a non-zero shift this frame
     bool            active;
+
+    // false when the right eye's SNES screen could not be allocated
+    bool            supported;
+
+    // The right eye needs its own copy of the SNES screen, or the left eye's
+    // frame is overwritten before it has been sampled. It is swapped into the
+    // texture table rather than given its own id, so that target selection,
+    // binding and filtering all keep working unchanged -- and because growing
+    // SGPU3DS shifts members that something else in the renderer is sensitive
+    // to (a 128 byte pad after its texture array is enough to break rendering).
+    SGPUTexture     screenRight;
+
+    // which copy currently sits in GPU3DS.textures[SNES_MAIN]
+    gfx3dSide_t     screenSide;
 
     // the draw lists are built once per frame and replayed for the second eye
     bool            listsBuilt;
@@ -241,7 +256,8 @@ void gpu3dsInitLayers();
 void gpu3dsPrepareSnesScreenForNextFrame();
 void gpu3dsDrawSnesScreen();
 void gpu3dsUpdateStereoLayerShifts();
-void gpu3dsDrawSnesScreenForEye(int eye);
+void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
+void gpu3dsSelectSnesScreenEye(gfx3dSide_t side);
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub = false, bool reuseVertices = false);
 
 void gpu3dsSetMode7TexturesPixelFormat(GPU_TEXCOLOR fmt);

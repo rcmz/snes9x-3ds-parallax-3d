@@ -461,6 +461,8 @@ void gpu3dsPrepareSnesScreenForNextFrame() {
 	gpu3dsPrepareListForNextFrame(&GPU3DS.vertices[VBO_SCENE_MODE7_LINE], true);
 
     if (GPU3DSExt.render2x.dirty) {
+        if (GPU3DSExt.stereo.supported)
+            gpu3dsClearTexture(&GPU3DSExt.stereo.screenRight, 0);
         gpu3dsClearTexture(&GPU3DS.textures[SNES_MAIN], 0);
         gpu3dsClearTexture(&GPU3DS.textures[SNES_SUB], 0);
         gpu3dsClearTexture(&GPU3DS.textures[SNES_DEPTH], 0);
@@ -548,13 +550,40 @@ void gpu3dsDrawSnesScreen() {
 }
 
 //---------------------------------------------------------
-// Draws the whole SNES frame for one eye. The vertex data is
-// built once per frame during emulation and replayed here, with
-// each layer shifted horizontally by its stereo parallax.
-// eye: -1 = left, +1 = right, 0 = flat.
+// Draws the whole SNES frame for one eye into that eye's screen
+// texture. The vertex data is built once per frame during
+// emulation and replayed here, with each layer shifted
+// horizontally by its stereo parallax.
 //---------------------------------------------------------
-void gpu3dsDrawSnesScreenForEye(int eye) {
-    GPU3DSExt.stereo.eye = GPU3DSExt.stereo.active ? (s8)eye : 0;
+//---------------------------------------------------------
+// Puts the given eye's copy of the SNES screen into the texture
+// table, so every later render-state change addresses it as
+// SNES_MAIN without knowing which eye is being drawn.
+//---------------------------------------------------------
+void gpu3dsSelectSnesScreenEye(gfx3dSide_t side) {
+    SStereoLayerState *stereo = &GPU3DSExt.stereo;
+
+    if (!stereo->supported)
+        side = GFX_LEFT;
+
+    if (stereo->screenSide == side)
+        return;
+
+    SGPUTexture previous = GPU3DS.textures[SNES_MAIN];
+    GPU3DS.textures[SNES_MAIN] = stereo->screenRight;
+    stereo->screenRight = previous;
+    stereo->screenSide = side;
+
+    // The render target and the bound texture both changed underneath the
+    // render state, so force the next draw to re-apply them.
+    GPU3DS.appliedRenderState.target = TARGET_UNSET;
+    GPU3DS.appliedRenderState.textureBind = TEX_UNSET;
+}
+
+void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side) {
+    GPU3DSExt.stereo.eye = GPU3DSExt.stereo.active ? (side == GFX_RIGHT ? 1 : -1) : 0;
+
+    gpu3dsSelectSnesScreenEye(GPU3DSExt.stereo.active ? side : GFX_LEFT);
 
     gpu3dsDrawSnesScreen();
 }
@@ -575,7 +604,7 @@ void gpu3dsUpdateStereoLayerShifts() {
     // The 512px render path already uses the full width of the render
     // target, leaving no room for the off-screen margin the shifted
     // layers need, so per-layer depth is a standard-resolution feature.
-    if (!settings3DS.Depth3DEnabled || GPU3DSExt.render2x.enabled || screenshot.dirty)
+    if (!stereo->supported || !settings3DS.Depth3DEnabled || GPU3DSExt.render2x.enabled || screenshot.dirty)
         return;
 
     float strength = gpu3dsGetLayerDepthStrength();
