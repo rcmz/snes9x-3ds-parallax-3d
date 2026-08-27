@@ -43,7 +43,7 @@ sleep 1
 
 # The guest polls input once per emulated frame, so a key has to stay down
 # longer than one frame or the press falls between two polls and is lost.
-press() { xdotool keydown "$1"; sleep 0.12; xdotool keyup "$1"; sleep "${2:-0.6}"; }
+press() { xdotool keydown "$1"; sleep "${HOLD:-0.12}"; xdotool keyup "$1"; sleep "${2:-0.6}"; }
 
 # The browser opens on sdmc:/ with the "3ds" data folder selected,
 # and the ROMs listed after it.
@@ -53,6 +53,17 @@ import -window root "${OUT%.png}-menu.png"
 press a 10       # load the ROM
 
 [ "$EXTRA" != "0" ] && sleep "$EXTRA"
+
+# Optional extra key script: one xdotool key name per line, or "sleep N".
+if [ -n "${KEYS:-}" ]; then
+    while read -r line; do
+        [ -z "$line" ] && continue
+        case "$line" in
+            sleep\ *) sleep "${line#sleep }" ;;
+            *) HOLD="${MENU_HOLD:-0.04}" press "$line" 0.5 ;;
+        esac
+    done <<< "$KEYS"
+fi
 
 import -window root "$OUT"
 echo "captured $OUT"

@@ -1,8 +1,18 @@
-# Snes9x for 3DS
+# Snes9x 3D
 
 ## Overview
 
-This project is a fork of the legacy snes9x_3ds codebase by [bubble2k](https://github.com/bubble2k16/snes9x_3ds) and continues that work with a modernized architecture and improved user experience.
+**Snes9x 3D puts the SNES' hardware planes at different depths on the 3DS' 3D screen.**
+
+The SNES draws a fixed set of background planes and a sprite plane, and games
+use them for parallax scrolling: distant scenery on one plane, the playfield on
+another, the HUD on a third. Those planes are defined by the console's hardware
+rather than by each game's own logic, so an emulator can give every one of them
+a real depth instead of flattening them into a single picture. See
+[Per-layer 3D depth](#per-layer-3d-depth) for how to set it up.
+
+This project is a fork of [matbo87/snes9x_3ds](https://github.com/matbo87/snes9x_3ds),
+itself a fork of the legacy snes9x_3ds codebase by [bubble2k](https://github.com/bubble2k16/snes9x_3ds), and continues that work with a modernized architecture and improved user experience.
 It builds with current devkitARM, libctru and citro3d releases (as of June 2026). Optional assets are available in the dedicated asset repository: [snes9x_3ds-assets](https://github.com/matbo87/snes9x_3ds-assets).
 
 It works on all 2DS and 3DS models.
@@ -12,6 +22,7 @@ Feedback and bug reports are welcome.
 
 ## Main features
 
+* Per-layer stereoscopic depth, configurable per game
 * Improved rendering for HDMA-heavy games and mosaic effects
 * SNES refresh rate matching (60.1 Hz for NTSC, 50 Hz for PAL)
 * NDSP audio output
@@ -20,6 +31,39 @@ Feedback and bug reports are welcome.
 * Improved cheat management
 * Extended hotkey options and screen swap support
 * Directory caching for faster ROM list loading
+
+## Per-layer 3D depth
+
+Each SNES plane can be placed at its own depth, so that a game's parallax
+backgrounds actually sit behind the playfield on the 3D screen.
+
+Open the pause menu, go to **Settings -> Video -> 3D Depth** and turn on
+**Per-Layer 3D Depth**. Each plane (BG1 to BG4 and the sprites) then gets a
+depth slider:
+
+* `0` places the plane at the screen, where a flat picture sits.
+* Higher values push it further behind the screen.
+* Negative values pull it in front of the screen.
+
+Depth is stored per game, because only the game knows which plane it uses for
+distant scenery, which one carries the playfield and which one is the HUD. A
+good starting point is to leave the playfield plane at `0`, give the plane that
+scrolls more slowly a positive depth, and put the HUD plane slightly negative.
+
+Pause the game while adjusting: the top screen keeps showing the paused frame
+and redraws it as you move the sliders, so the effect can be judged directly.
+
+Notes:
+
+* The physical 3D slider still scales the whole effect, and the existing
+  **3D Intensity** setting scales it further.
+* The feature needs the 3D screen, so it is unavailable on 2DS models, and it
+  needs **Enhanced Resolution** to be off, because the 512px render path leaves
+  no room for the off-screen margin that shifted planes draw into.
+* Both eyes are rendered from the same frame's geometry, so the SNES
+  compositing rules (priorities, windows, colour math) stay exactly as they are
+  in 2D. The cost is one extra pass over the frame's vertices per eye, which
+  only happens while the 3D slider is open.
 
 ## Setup
 
