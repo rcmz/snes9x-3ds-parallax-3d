@@ -1174,6 +1174,19 @@ inline void SelectTileBGRenderer (bool8 normal)
 uint8 LineOBJ[SNES_HEIGHT_EXTENDED];
 uint8 OBJOnLine[SNES_HEIGHT_EXTENDED][128];
 
+//---------------------------------------------------------
+// Number of 8 pixel sprite tiles that fall inside the visible
+// screen. Used for the hardware's per-scanline sprite budget,
+// so it deliberately ignores the stereo render margin.
+//---------------------------------------------------------
+static inline int S9xOBJOnScreenTiles(int HPos, int Width)
+{
+	int left  = HPos < 0 ? 0 : HPos;
+	int right = (HPos + Width > 257) ? 257 : HPos + Width;
+
+	return right > left ? ((right - left + 7) >> 3) : 0;
+}
+
 void S9xSetupOBJ ()
 {
     static const int sizes[8][4] = {
@@ -1188,6 +1201,8 @@ void S9xSetupOBJ ()
     };
     
     int index = PPU.OBJSizeSelect > 7 ? 5 : PPU.OBJSizeSelect;
+    const int marginX = GPU3DSExt.stereo.marginX;
+
     int SmallWidth = sizes[index][0];
     int SmallHeight = sizes[index][1];
     int LargeWidth = sizes[index][2];
@@ -1239,16 +1254,13 @@ void S9xSetupOBJ ()
 			int HPos = PPU.OBJ[S].HPos;
 			HPos = (HPos == -256) ? 256 : HPos;
 
-			if (HPos > -Width && HPos <= 256)
+			// Sprites just outside the screen are kept when the sprite plane has
+			// stereo depth, because the shift can bring them into view. The tile
+			// budget below still counts only the genuinely on-screen part, so the
+			// hardware's per-scanline sprite limits are unchanged.
+			if (HPos > -Width - marginX && HPos <= 256 + marginX)
 			{
-				// Unrolled calculation of GFX.OBJVisibleTiles[S]
-				int visibleTiles;
-				if (HPos < 0)
-					visibleTiles = (Width + HPos + 7) >> 3;
-				else if (HPos + Width >= 257)
-					visibleTiles = (257 - HPos + 7) >> 3;
-				else
-					visibleTiles = Width >> 3;
+				int visibleTiles = S9xOBJOnScreenTiles(HPos, Width);
 				GFX.OBJVisibleTiles[S] = visibleTiles;
 
 				uint8 startY = PPU.OBJ[S].VPos & 0xff;
@@ -1321,13 +1333,8 @@ void S9xSetupOBJ ()
 			int HPos = PPU.OBJ[S].HPos;
 			HPos = (HPos == -256) ? 256 : HPos;
 
-			if (HPos > -Width && HPos <= 256) {
-				if (HPos < 0)
-					GFX.OBJVisibleTiles[S] = (Width + HPos + 7) >> 3;
-				else if (HPos + Width >= 257)
-					GFX.OBJVisibleTiles[S] = (257 - HPos + 7) >> 3;
-				else
-					GFX.OBJVisibleTiles[S] = Width >> 3;
+			if (HPos > -Width - marginX && HPos <= 256 + marginX) {
+				GFX.OBJVisibleTiles[S] = S9xOBJOnScreenTiles(HPos, Width);
 
 				for (uint8 line = 0, Y = (uint8)(PPU.OBJ[S].VPos & 0xff); line < Height; Y++, line++) {
 					if (Y >= SNES_HEIGHT_EXTENDED) continue;

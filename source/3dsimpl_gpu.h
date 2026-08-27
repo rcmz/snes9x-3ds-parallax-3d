@@ -198,6 +198,12 @@ typedef struct
     // -1 = left eye, +1 = right eye, 0 = flat (no per-layer shift)
     s8              eye;
 
+    // Extra pixels rendered outside the visible SNES width, so that a layer
+    // shifted towards one edge still has real tile content to show there
+    // instead of a gap. The whole frame is drawn offset by this much and the
+    // presented quad samples from marginX to marginX + renderWidth.
+    s8              marginX;
+
     // true when at least one layer has a non-zero shift this frame
     bool            active;
 

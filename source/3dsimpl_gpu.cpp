@@ -321,9 +321,9 @@ void gpu3dsDrawTiledLayer(SLayer *layer, u16 *indices, int from, int to) {
 void gpu3dsDrawLayers(SLayerList *list) {
     const SStereoLayerState *stereo = &GPU3DSExt.stereo;
 
-    // Window masks live in screen space and are shared by every layer,
-    // so they are never shifted for stereo.
-    GPU3DS.currentRenderState.parallax = 0;
+    // Window masks live in screen space and are shared by every layer, so they
+    // take the frame's margin offset but never a per-layer stereo shift.
+    GPU3DS.currentRenderState.parallax = stereo->marginX;
 
     // draw window_lr into depth buffer first
     SLayer *layer = &list->layers[LAYER_WINDOW_LR];
@@ -345,7 +345,7 @@ void gpu3dsDrawLayers(SLayerList *list) {
             LAYER_ID id = list->layersByTarget[i][j];
             SLayer *layer = &list->layers[id];
 
-            GPU3DS.currentRenderState.parallax = stereo->eye * stereo->layerShift[id];
+            GPU3DS.currentRenderState.parallax = stereo->marginX + stereo->eye * stereo->layerShift[id];
 
             int from = layer->sectionsOffset + (sub ? 0 : layer->sectionsByTarget[TARGET_SNES_SUB]);
             int to = from + layer->sectionsByTarget[i];
@@ -372,6 +372,7 @@ void gpu3dsDrawLayers(SLayerList *list) {
 
     GPU3DS.currentRenderState.parallax = 0;
 }
+
 
 void gpu3dsDrawMode7Texture()
 {
@@ -569,6 +570,7 @@ void gpu3dsUpdateStereoLayerShifts() {
     memset(stereo->layerShift, 0, sizeof(stereo->layerShift));
     stereo->active = false;
     stereo->eye = 0;
+    stereo->marginX = 0;
 
     // The 512px render path already uses the full width of the render
     // target, leaving no room for the off-screen margin the shifted
@@ -589,9 +591,18 @@ void gpu3dsUpdateStereoLayerShifts() {
 
         stereo->layerShift[i] = (s8)shift;
 
-        if (shift)
-            stereo->active = true;
+        if (abs(shift) > stereo->marginX)
+            stereo->marginX = (s8)abs(shift);
     }
+
+    if (!stereo->marginX)
+        return;
+
+    stereo->active = true;
+
+    // Round up to a whole tile so the background loops can simply draw
+    // marginX / 8 extra tile columns on each side.
+    stereo->marginX = (s8)((stereo->marginX + 7) & ~7);
 }
 
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub, bool reuseVertices) {

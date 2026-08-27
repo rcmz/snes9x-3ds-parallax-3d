@@ -768,9 +768,9 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 	 	gameScreenViewport.sy0 = screenshot.y;
         gameScreenViewport.sx1 = gameScreenViewport.sx0 + gameScreenViewport.sWidth;
         gameScreenViewport.sy1 = gameScreenViewport.sy0 + gameScreenViewport.cHeight;
-        gameScreenViewport.tx0 = 0.0f;
+        gameScreenViewport.tx0 = static_cast<float>(GPU3DSExt.stereo.marginX);
         gameScreenViewport.ty0 = 0.0f;
-        gameScreenViewport.tx1 = static_cast<float>(GPU3DSExt.renderWidth);
+        gameScreenViewport.tx1 = gameScreenViewport.tx0 + static_cast<float>(GPU3DSExt.renderWidth);
         gameScreenViewport.ty1 = static_cast<float>(PPU.ScreenHeight);
 
         GPU3DS.activeSide = GFX_LEFT;
@@ -830,9 +830,11 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
     gameScreenViewport.sx1 = gameScreenViewport.sx0 + gameScreenViewport.sWidth;
     gameScreenViewport.sy1 = gameScreenViewport.sy0 + gameScreenViewport.cHeight;
 	
-    // Start half a pixel in from the edges so linear filtering can't leave a thin line
-    gameScreenViewport.tx0 = 0.5f;
-    gameScreenViewport.tx1 = static_cast<float>(GPU3DSExt.renderWidth) - 0.5f;
+    // Start half a pixel in from the edges so linear filtering can't leave a thin line.
+    // The stereo margin is rendered outside the visible width and skipped here.
+    float marginX = static_cast<float>(GPU3DSExt.stereo.marginX);
+    gameScreenViewport.tx0 = marginX + 0.5f;
+    gameScreenViewport.tx1 = marginX + static_cast<float>(GPU3DSExt.renderWidth) - 0.5f;
     gameScreenViewport.ty0 = static_cast<float>(cropTopSource) + (cropTopSource == 0 ? 0.5f : 0.0f);
     gameScreenViewport.ty1 = static_cast<float>(PPU.ScreenHeight - cropBottomSource) - (cropBottomSource == 0 ? 0.5f : 0.0f);
 
