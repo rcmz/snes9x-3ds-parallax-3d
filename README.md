@@ -50,6 +50,16 @@ distant scenery, which one carries the playfield and which one is the HUD. A
 good starting point is to leave the playfield plane at `0`, give the plane that
 scrolls more slowly a positive depth, and put the HUD plane slightly negative.
 
+Super Metroid, for example, works well at BG1 `0`, BG2 `8`, BG3 `-4`,
+sprites `-1`. It is also a good illustration of why this is per game: BG1 is the
+scenery, BG2 the distant parallax in most rooms, and BG3 carries the HUD *and*
+the rain on the Crateria surface — so a slightly negative BG3 puts both the
+interface and the rain in front of the scene, which happens to suit both.
+
+Nothing forces one plane to hold one kind of content, so a game can put things
+at odds on the same plane. When that happens, pick the depth that suits
+whichever of them is more prominent, or leave that plane at `0`.
+
 Pause the game while adjusting: the top screen keeps showing the paused frame
 and redraws it as you move the sliders, so the effect can be judged directly.
 
@@ -62,8 +72,13 @@ Notes:
   no room for the off-screen margin that shifted planes draw into.
 * Both eyes are rendered from the same frame's geometry, so the SNES
   compositing rules (priorities, windows, colour math) stay exactly as they are
-  in 2D. The cost is one extra pass over the frame's vertices per eye, which
-  only happens while the 3D slider is open.
+  in 2D. The SNES itself is emulated once per frame; what is repeated per eye is
+  replaying the frame's vertices, and only while the 3D slider is open.
+* A plane can only be shifted as far as the game's own tilemap reaches. Where a
+  game leaves no valid tile data just outside the visible screen, a plane given
+  depth can uncover a thin strip at one edge showing the plane behind it. Giving
+  the plane the camera follows a depth of `0` avoids this, since that is the one
+  whose off-screen data is least likely to be there.
 
 ## Setup
 
