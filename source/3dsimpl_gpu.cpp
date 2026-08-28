@@ -615,8 +615,8 @@ void gpu3dsUpdateStereoLayerShifts() {
     for (int i = 0; i <= LAYER_OBJ; i++) {
         int shift = (int)lroundf(settings3DS.Depth3D[i] * strength);
 
-        if (shift < PARALLAX_MIN) shift = PARALLAX_MIN;
-        if (shift > PARALLAX_MAX) shift = PARALLAX_MAX;
+        if (shift < -PARALLAX_SHIFT_MAX) shift = -PARALLAX_SHIFT_MAX;
+        if (shift > PARALLAX_SHIFT_MAX) shift = PARALLAX_SHIFT_MAX;
 
         stereo->layerShift[i] = (s8)shift;
 

@@ -48,6 +48,11 @@
 #define PARALLAX_MIN    (-32)
 #define PARALLAX_MAX    31
 
+// A layer is drawn at the frame's off-screen margin plus or minus its own shift,
+// and the margin is the largest shift rounded up to a tile. Capping a single
+// shift at half the field keeps that sum inside it.
+#define PARALLAX_SHIFT_MAX  (PARALLAX_MAX / 2)
+
 
 #define DISPLAY_TRANSFER_FMT GX_TRANSFER_FMT_RGB8
 
