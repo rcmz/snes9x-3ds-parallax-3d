@@ -37,48 +37,78 @@ Feedback and bug reports are welcome.
 Each SNES plane can be placed at its own depth, so that a game's parallax
 backgrounds actually sit behind the playfield on the 3D screen.
 
-Open the pause menu, go to **Settings -> Video -> 3D Depth** and turn on
-**Per-Layer 3D Depth**. Each plane (BG1 to BG4 and the sprites) then gets a
-depth slider:
+Open the pause menu and go to the **3D Depth** tab, then turn on **Per-Layer 3D
+Depth**.
 
-* `0` places the plane at the screen, where a flat picture sits.
+### One depth per priority, not per plane
+
+The SNES does not composite whole planes at one depth. It interleaves each
+background's two tile priorities with the four sprite priorities, so in Mode 1
+the order from front to back is:
+
+    BG3 prio 1   (when $2105 bit 3 is set)
+    OBJ prio 3
+    BG1 prio 1
+    BG2 prio 1
+    OBJ prio 2
+    BG1 prio 0
+    BG2 prio 0
+    OBJ prio 1
+    BG3 prio 1   (when that bit is clear)
+    OBJ prio 0
+    BG3 prio 0
+    Backdrop
+
+A plane's high-priority tiles sit in front of sprites that are themselves in
+front of that same plane's low-priority tiles. Each of those slots therefore
+gets its own slider: BG1 to BG4 at both priorities, and sprites at all four.
+
+That distinction is not academic. Super Metroid draws its interface *and* the
+Crateria rain on BG3, and the only thing separating them is the priority bit --
+the interface on priority 1, the rain on priority 0. One depth per plane forces
+them together; one depth per slot lets the interface float in front while the
+rain sits back in the scene.
+
+### Using the sliders
+
+* `0` places that slot at the screen, where a flat picture sits.
 * Higher values push it further behind the screen.
 * Negative values pull it in front of the screen.
 
-Depth is stored per game, because only the game knows which plane it uses for
+Depth is stored per game, because only the game knows which slot it uses for
 distant scenery, which one carries the playfield and which one is the HUD. A
-good starting point is to leave the playfield plane at `0`, give the plane that
-scrolls more slowly a positive depth, and put the HUD plane slightly negative.
+good starting point is to leave the playfield at `0`, give the slots that scroll
+more slowly a positive depth, and put the interface slightly negative.
 
-Super Metroid, for example, works well at BG1 `0`, BG2 `8`, BG3 `-4`,
-sprites `-1`. It is also a good illustration of why this is per game: BG1 is the
-scenery, BG2 the distant parallax in most rooms, and BG3 carries the HUD *and*
-the rain on the Crateria surface — so a slightly negative BG3 puts both the
-interface and the rain in front of the scene, which happens to suit both.
-
-Nothing forces one plane to hold one kind of content, so a game can put things
-at odds on the same plane. When that happens, pick the depth that suits
-whichever of them is more prominent, or leave that plane at `0`.
+Super Metroid, for example, works well at BG1 prio 0 `0`, BG2 prio 0 `8`,
+BG3 prio 0 `10` for the rain, BG3 prio 1 `-4` for the interface, and sprites
+`-1`.
 
 Pause the game while adjusting: the top screen keeps showing the paused frame
 and redraws it as you move the sliders, so the effect can be judged directly.
+A slider set beyond the margin the paused frame was built with previews clamped
+to that margin and takes full effect once the game runs again.
 
 Notes:
 
 * The physical 3D slider still scales the whole effect, and the existing
   **3D Intensity** setting scales it further.
+* The backdrop fills the screen, so it has no depth of its own and is always
+  furthest back.
 * The feature needs the 3D screen, so it is unavailable on 2DS models, and it
   needs **Enhanced Resolution** to be off, because the 512px render path leaves
   no room for the off-screen margin that shifted planes draw into.
+* Mode 7 encodes depth as a single bit rather than a slot, so its planes are not
+  covered.
 * Both eyes are rendered from the same frame's geometry, so the SNES
   compositing rules (priorities, windows, colour math) stay exactly as they are
   in 2D. The SNES itself is emulated once per frame; what is repeated per eye is
   replaying the frame's vertices, and only while the 3D slider is open.
-* A plane can only be shifted as far as the game's own tilemap reaches. Where a
-  game leaves no valid tile data just outside the visible screen, a plane given
-  depth can uncover a thin strip at one edge showing the plane behind it. Giving
-  the plane the camera follows a depth of `0` avoids this, since that is the one
-  whose off-screen data is least likely to be there.
+* A slot can only be shifted as far as the game's own tilemap reaches. Where a
+  game leaves no valid tile data just outside the visible screen, a slot given
+  depth can uncover a thin strip at one edge showing what is behind it. Giving
+  the slots the camera follows a depth of `0` avoids this, since those are the
+  ones whose off-screen data is least likely to be there.
 
 ## Setup
 

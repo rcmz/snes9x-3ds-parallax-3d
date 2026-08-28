@@ -27,16 +27,18 @@ This core is based on **snes9x 1.43**, which uses the older, less accurate SNES 
 
 ## Per-layer 3D depth
 
-A plane given a depth slides sideways between the two eyes, so the renderer
-draws extra tile columns past both screen edges to fill the strip that
-uncovers. That margin is generated for the normal background paths (including
-offset-per-tile and mosaic) and for sprites, but not yet for Mode 7 or the
-hi-res Mode 5/6 path, so giving depth to a plane drawn by those can leave a gap
-at one edge of each eye. Leave them at `0` for now.
+A slot given a depth slides sideways between the two eyes, so the renderer draws
+extra tile columns past both screen edges to fill the strip that uncovers. That
+margin is generated for the normal background paths (including offset-per-tile
+and mosaic) and for sprites, but not for the hi-res Mode 5/6 path, so giving
+depth to a plane drawn that way can leave a gap at one edge of each eye.
 
-Windows and colour-math regions stay in screen space rather than moving with
-the plane they mask, so a windowed effect over a plane with depth is off by
-that plane's shift at the mask edge.
+Mode 7 encodes depth as a single bit rather than one of the interleaved slots,
+so its planes take no depth at all.
+
+Windows and colour-math regions stay in screen space rather than moving with the
+slot they mask, so a windowed effect over a slot with depth is off by that slot's
+shift at the mask edge.
 
 ## Game-specific issues
 
