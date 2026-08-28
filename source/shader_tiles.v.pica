@@ -3,6 +3,10 @@
 .fvec       textureScale        ; #4
 .fvec       textureOffset       ; #5 
                                 ; x = texture offset (0.0 or 1.0 for mode5/6 hi-res flipping)
+.fvec       slotOffset[17]      ; #6 - 22
+                                ; x = horizontal shift, in pixels, for each SNES depth slot.
+                                ; The slot is the plane-and-priority the vertex belongs to, so
+                                ; every one of them can sit at its own stereoscopic depth.
 
 ; Constants
 .constf c_base          (0, 1, 2, 8)    ; (x, y, z, w)
@@ -87,8 +91,12 @@ depth_computation:
 
     mov     r1, c_depth
     mul     r0.z, r0.y, r1.z            ; r0.z = r0.y / 256
-    flr     r0.z, r0.z                  ; r0.z = floor(r0.y / 256)
+    flr     r0.z, r0.z                  ; r0.z = floor(r0.y / 256), the depth slot
     mad     r0.y, r0.z, r1.y, r0.y      ; r0.y = r0.y + r0.z * (-256) = r0.y - floor(r0.y / 256) * 256
+
+    mova    a0.x, r0.z                  ; shift this slot for the eye being drawn
+    add     r0.x, slotOffset[a0.x].x, r0.x
+
     mul     r0.z, r0.z, r1.x            ; r0.z = r0.z / 16
 
 draw:

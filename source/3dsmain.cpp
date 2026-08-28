@@ -759,24 +759,37 @@ const std::vector<SMenuItem>& makeOptionsForScreenFilter() {
 }
 
 //---------------------------------------------------------
-// Per-game stereoscopic depth for the SNES hardware planes.
+// Per-game stereoscopic depth, one slot at a time.
 //
-// The SNES draws a fixed set of planes and games use them for
-// parallax, so each plane can be placed at its own depth on the
-// 3DS' autostereoscopic screen. Depth is per game because only
-// the game knows which plane is scenery, backdrop or HUD.
+// The SNES interleaves each background's two tile priorities
+// with the four sprite priorities, so a plane is not one depth:
+// its high-priority tiles sit in front of sprites that are in
+// front of its own low-priority tiles. Each of those slots gets
+// its own control, because a game can put unrelated things on
+// the same plane -- Super Metroid's BG3 carries the interface
+// and the rain -- and only the priority tells them apart.
 //---------------------------------------------------------
-static void makeLayerDepth3DMenu(std::vector<SMenuItem>& items) {
-    if (!gpu3dsIs3DAvailable() || settings3DS.GameScreen != GFX_TOP)
+void makeDepth3DMenu(std::vector<SMenuItem>& items) {
+    items.clear();
+
+    AddMenuHeader1(items, "3D DEPTH"_s);
+
+    if (!gpu3dsIs3DAvailable()) {
+        AddMenuDisabledOption(items, "  This model has no 3D screen."_s);
+
         return;
+    }
 
-    AddMenuHeader2(items, "3D Depth"_s);
+    if (settings3DS.GameScreen != GFX_TOP) {
+        AddMenuDisabledOption(items, "  Needs the game on the top screen."_s);
 
-    bool enhancedResolutionOn = settings3DS.EnhancedResolution != Setting::EnhancedResolution::Off;
+        return;
+    }
 
-    if (enhancedResolutionOn) {
-        AddMenuDisabledOption(items, "  Per-Layer 3D Depth (needs Enhanced Resolution off)"_s);
-        AddMenuDisabledOption(items, ""_s);
+    if (settings3DS.EnhancedResolution != Setting::EnhancedResolution::Off) {
+        AddMenuDisabledOption(items, "  Needs Enhanced Resolution switched off."_s);
+        items.emplace_back(nullptr, MenuItemType::Textarea, "  The 512px render path leaves no room for the"_s, ""_s);
+        items.emplace_back(nullptr, MenuItemType::Textarea, "  off-screen margin a shifted plane draws into."_s, ""_s);
 
         return;
     }
@@ -787,30 +800,52 @@ static void makeLayerDepth3DMenu(std::vector<SMenuItem>& items) {
             if (CheckAndUpdateToggle(settings3DS.Depth3DEnabled, val)) {
                 menu3dsSetScreenDirty();
                 if (wasShown != settings3DS.Depth3DEnabled)
-                    menu3dsMarkTabDirty(TAB_SETTINGS);
+                    menu3dsMarkTabDirty(TAB_DEPTH3D);
             }
         });
 
     if (!settings3DS.Depth3DEnabled) {
-        items.emplace_back(nullptr, MenuItemType::Textarea, "  Places each SNES plane at its own depth."_s, ""_s);
-        AddMenuDisabledOption(items, ""_s);
+        items.emplace_back(nullptr, MenuItemType::Textarea, "  Places each SNES plane and priority at its own"_s, ""_s);
+        items.emplace_back(nullptr, MenuItemType::Textarea, "  depth instead of one flat picture."_s, ""_s);
 
         return;
     }
 
-    static const char *depthNames[LAYER_OBJ + 1] = { "  BG1", "  BG2", "  BG3", "  BG4", "  Sprites" };
+    static const char *slotNames[DEPTH3D_SLOT_COUNT] = {
+        "  BG1 prio 0", "  BG1 prio 1",
+        "  BG2 prio 0", "  BG2 prio 1",
+        "  BG3 prio 0", "  BG3 prio 1",
+        "  BG4 prio 0", "  BG4 prio 1",
+        "  OBJ prio 0", "  OBJ prio 1", "  OBJ prio 2", "  OBJ prio 3",
+    };
 
-    for (int layer = LAYER_BG0; layer <= LAYER_OBJ; layer++) {
-        AddMenuGauge(items, depthNames[layer], -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[layer],
-            [layer]( int val ) {
-                if (CheckAndUpdate(settings3DS.Depth3D[layer], (s8)val))
+    AddMenuDisabledOption(items, ""_s);
+    AddMenuHeader2(items, "Backgrounds"_s);
+
+    for (int slot = DEPTH3D_BG1_PRIO0; slot <= DEPTH3D_BG4_PRIO1; slot++) {
+        AddMenuGauge(items, slotNames[slot], -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[slot],
+            [slot]( int val ) {
+                if (CheckAndUpdate(settings3DS.Depth3D[slot], (s8)val))
                     menu3dsSetScreenDirty();
             }, true);
     }
 
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  0 = at the screen, higher = further back."_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  Pause in-game to preview while adjusting."_s, ""_s);
+    AddMenuDisabledOption(items, ""_s);
+    AddMenuHeader2(items, "Sprites"_s);
 
+    for (int slot = DEPTH3D_OBJ_PRIO0; slot <= DEPTH3D_OBJ_PRIO3; slot++) {
+        AddMenuGauge(items, slotNames[slot], -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[slot],
+            [slot]( int val ) {
+                if (CheckAndUpdate(settings3DS.Depth3D[slot], (s8)val))
+                    menu3dsSetScreenDirty();
+            }, true);
+    }
+
+    AddMenuDisabledOption(items, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  0 = at the screen, higher = further back."_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  The backdrop is always furthest back; it fills the"_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  screen, so it has no depth of its own."_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  Pause in-game to preview while adjusting."_s, ""_s);
     AddMenuDisabledOption(items, ""_s);
 }
 
@@ -858,8 +893,6 @@ void makeOptionMenu(std::vector<SMenuItem>& items, std::vector<SMenuTab>& menuTa
         });
 
     AddMenuDisabledOption(items, ""_s);
-
-    makeLayerDepth3DMenu(items);
 
     AddMenuCheckbox(items, "  Crop & Overscan"_s, settings3DS.CropEnabled,
         []( int val ) {
@@ -1321,15 +1354,19 @@ bool settingsReadWriteFullListByGame(bool writeMode)
         config3dsReadWriteEnum(stream, writeMode, "PaletteDeferBgMask=%d\n", &settings3DS.PaletteDeferBgMask, 0, 7);
     }
 
-    if (writeMode || detectedConfigVersion >= 1.6f) {
+    if (writeMode || detectedConfigVersion >= 1.7f) {
         config3dsReadWriteEnum(stream, writeMode, "Depth3DEnabled=%d\n", &settings3DS.Depth3DEnabled, 0, 1);
 
-        static const char *depth3DKey[LAYER_OBJ + 1] = {
-            "Depth3DBG1=%d\n", "Depth3DBG2=%d\n", "Depth3DBG3=%d\n", "Depth3DBG4=%d\n", "Depth3DOBJ=%d\n"
+        static const char *depth3DKey[DEPTH3D_SLOT_COUNT] = {
+            "Depth3DBG1P0=%d\n", "Depth3DBG1P1=%d\n",
+            "Depth3DBG2P0=%d\n", "Depth3DBG2P1=%d\n",
+            "Depth3DBG3P0=%d\n", "Depth3DBG3P1=%d\n",
+            "Depth3DBG4P0=%d\n", "Depth3DBG4P1=%d\n",
+            "Depth3DOBJP0=%d\n", "Depth3DOBJP1=%d\n", "Depth3DOBJP2=%d\n", "Depth3DOBJP3=%d\n",
         };
 
-        for (int layer = LAYER_BG0; layer <= LAYER_OBJ; layer++) {
-            config3dsReadWriteEnum(stream, writeMode, depth3DKey[layer], &settings3DS.Depth3D[layer], -DEPTH3D_MAX, DEPTH3D_MAX);
+        for (int slot = 0; slot < DEPTH3D_SLOT_COUNT; slot++) {
+            config3dsReadWriteEnum(stream, writeMode, depth3DKey[slot], &settings3DS.Depth3D[slot], -DEPTH3D_MAX, DEPTH3D_MAX);
         }
     }
 
@@ -1747,8 +1784,8 @@ void updateFileMenuTab(const char *selectedItemName, bool showCachingIndicator, 
 }
 
 void setupMenu(int& currentMenuTab) {
-    int requiredTabs = settings3DS.isRomLoaded ? 5 : 2;
-    int fileMenuTabIndex = settings3DS.isRomLoaded ? 4 : 1;
+    int requiredTabs = settings3DS.isRomLoaded ? TAB_DIRTY_COUNT + 1 : 2;
+    int fileMenuTabIndex = settings3DS.isRomLoaded ? TAB_DIRTY_COUNT : 1;
     bool isFirstRun = menuTabs.empty();
     bool requiredTabsChanged = menuTabs.size() != static_cast<size_t>(requiredTabs);
     bool romChanged = !isFirstRun && Memory.ROMCRC32 != lastLoadedRomCRC;
@@ -1760,7 +1797,7 @@ void setupMenu(int& currentMenuTab) {
     }
 
     const char* tabsStart[] = { "Emulator", "Load Game" };
-    const char* tabsGame[] = { "Emulator", "Settings", "Controls", "Cheats", "Load Game" };
+    const char* tabsGame[] = { "Emulator", "Settings", "3D Depth", "Controls", "Cheats", "Load Game" };
     const char** tabs = settings3DS.isRomLoaded ? tabsGame : tabsStart;
 
     for (int i = 0; i < requiredTabs; i++) {
@@ -1773,16 +1810,19 @@ void setupMenu(int& currentMenuTab) {
             menuTabs[i].SubTitle.clear();
 
             switch (i) {
-                case 0:
+                case TAB_EMULATOR:
                     makeEmulatorMenu(menuTabs[i].MenuItems, menuTabs, currentMenuTab);
                     break;
-                case 1:
+                case TAB_SETTINGS:
                     makeOptionMenu(menuTabs[i].MenuItems, menuTabs, currentMenuTab);
                     break;
-                case 2:
+                case TAB_DEPTH3D:
+                    makeDepth3DMenu(menuTabs[i].MenuItems);
+                    break;
+                case TAB_CONTROLS:
                     makeControlsMenu(menuTabs[i].MenuItems, menuTabs, currentMenuTab);
                     break;
-                case 3:
+                case TAB_CHEATS:
                     makeCheatMenu(menuTabs[i].MenuItems);
                     break;
             }
@@ -2009,7 +2049,7 @@ void showMenu() {
         lastLoadedRomCRC = Memory.ROMCRC32;
     }
 
-    std::vector<SMenuItem>& cheatMenu = settings3DS.isRomLoaded ? menuTabs[3].MenuItems : emptyCheats;
+    std::vector<SMenuItem>& cheatMenu = settings3DS.isRomLoaded ? menuTabs[TAB_CHEATS].MenuItems : emptyCheats;
 
     bool isDialog = false;
     bool runNextGame = false;

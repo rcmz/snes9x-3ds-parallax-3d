@@ -877,9 +877,13 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 	// While paused the emulator is not producing new frames, but the last
 	// frame's geometry is still in the vertex buffers, so both eyes are
 	// redrawn from it. That makes depth changes in the menu visible live.
-	if (GPU3DSExt.stereo.active && paused) {
-		gpu3dsDrawSnesScreenForEye(GFX_LEFT);
-		gpu3dsDrawSnesScreenForEye(GFX_RIGHT);
+	if (paused) {
+		gpu3dsUpdateStereoLayerShiftsForPreview();
+
+		if (GPU3DSExt.stereo.active) {
+			gpu3dsDrawSnesScreenForEye(GFX_LEFT);
+			gpu3dsDrawSnesScreenForEye(GFX_RIGHT);
+		}
 	}
 
 	GPU3DS.activeSide = GFX_LEFT;

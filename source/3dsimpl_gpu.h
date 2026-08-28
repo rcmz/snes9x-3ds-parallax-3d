@@ -3,6 +3,7 @@
 #define _3DSIMPL_GPU_H_
 
 #include "3dsgpu.h"
+#include "3dssettings.h"
 
 #define COMPOSE_HASH(vramAddr, pal)   ((vramAddr) << 4) + ((pal) & 0xf)
 
@@ -189,11 +190,24 @@ typedef struct
 // per layer, which keeps the SNES compositing rules (priority,
 // windows, colour math) exactly as they are in 2D.
 //---------------------------------------------------------
+// Number of depth slots the renderer can assign. Mode 1 uses 1..13, and slot 0
+// is where the backdrop, brightness and colour-math fills land -- those cover
+// the whole screen, so shifting them would only open a gap and they stay put.
+#define SNES_DEPTH_SLOTS    17
+
 typedef struct
 {
-    // Shift in SNES pixels applied to each layer for the right eye;
-    // the left eye uses the negated value. Index = LAYER_ID.
-    s8              layerShift[LAYERS_COUNT];
+    // Shift in SNES pixels for the right eye, per configurable slot; the left
+    // eye uses the negated value. Index = DEPTH3D_SLOT.
+    s8              slotShift[DEPTH3D_SLOT_COUNT];
+
+    // Which configurable slot each hardware depth slot draws its shift from,
+    // or -1 for the slots nothing configurable lands on. Sprites are fixed at
+    // slots 3, 6, 9 and 12; a background's two priorities land on slots that
+    // depend on the background mode, so those are recorded as the modes assign
+    // them. Keeping the mapping rather than the resolved shifts lets the paused
+    // preview follow the menu without re-rendering the frame.
+    s8              depthSlotSource[SNES_DEPTH_SLOTS];
 
     // Sign of the shift for the eye currently being drawn:
     // -1 = left, +1 = right, 0 = flat (no per-layer shift)
@@ -257,8 +271,29 @@ void gpu3dsInitLayers();
 void gpu3dsPrepareSnesScreenForNextFrame();
 void gpu3dsDrawSnesScreen();
 void gpu3dsUpdateStereoLayerShifts();
+void gpu3dsUpdateStereoLayerShiftsForPreview();
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
 void gpu3dsSelectSnesScreenEye(gfx3dSide_t side);
+
+//---------------------------------------------------------
+// Records which depth slots a background's two tile priorities
+// land on. Which slot that is depends on the background mode,
+// so it is recorded where the modes assign it rather than
+// duplicated as a table.
+//---------------------------------------------------------
+static inline void gpu3dsMapPlaneDepthSlots(int bg, int slot0, int slot1)
+{
+    SStereoLayerState *stereo = &GPU3DSExt.stereo;
+
+    if (!stereo->active)
+        return;
+
+    if (slot0 >= 0 && slot0 < SNES_DEPTH_SLOTS)
+        stereo->depthSlotSource[slot0] = (s8)DEPTH3D_BG_SLOT(bg, 0);
+
+    if (slot1 >= 0 && slot1 < SNES_DEPTH_SLOTS)
+        stereo->depthSlotSource[slot1] = (s8)DEPTH3D_BG_SLOT(bg, 1);
+}
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub = false, bool reuseVertices = false);
 
 void gpu3dsSetMode7TexturesPixelFormat(GPU_TEXCOLOR fmt);

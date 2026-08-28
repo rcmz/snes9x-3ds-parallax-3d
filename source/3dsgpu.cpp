@@ -870,6 +870,7 @@ bool gpu3dsInitializeShaderUniformLocations()
     
     // used by shader_tiles (v)
     GPU3DS.shaderULocs[ULOC_TEX_OFFSET] = shaderInstanceGetUniformLocation(GPU3DS.shaders[SPROGRAM_TILES].shaderProgram.vertexShader, "textureOffset");
+    GPU3DS.shaderULocs[ULOC_SLOT_OFFSET] = shaderInstanceGetUniformLocation(GPU3DS.shaders[SPROGRAM_TILES].shaderProgram.vertexShader, "slotOffset");
     
     // used by shader_mode7 (v)
     GPU3DS.shaderULocs[ULOC_UPDATE_FRAME] = shaderInstanceGetUniformLocation(GPU3DS.shaders[SPROGRAM_MODE7].shaderProgram.vertexShader, "updateFrame");

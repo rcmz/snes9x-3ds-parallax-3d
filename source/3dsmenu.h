@@ -15,7 +15,9 @@
 
 #define MENU_HEIGHT             (14)
 
-enum { TAB_EMULATOR, TAB_SETTINGS, TAB_CONTROLS, TAB_CHEATS, TAB_DIRTY_COUNT };
+enum { TAB_EMULATOR, TAB_SETTINGS, TAB_DEPTH3D, TAB_CONTROLS, TAB_CHEATS, TAB_DIRTY_COUNT };
+
+static_assert(TAB_DIRTY_COUNT == MENU_TAB_DIRTY_COUNT, "settings3DS.menuTabDirty is sized for a different number of tabs");
 
 typedef struct 
 {

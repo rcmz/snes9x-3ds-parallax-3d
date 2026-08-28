@@ -1,8 +1,38 @@
 #ifndef _3DSSETTINGS_H_
 #define _3DSSETTINGS_H_
 
-// Largest per-plane depth the UI allows, in SNES pixels of parallax.
+// Menu tabs that can be marked for rebuilding. Kept in step with TAB_DIRTY_COUNT
+// by a static assert next to that enum.
+#define MENU_TAB_DIRTY_COUNT    5
+
+// Largest per-slot depth the UI allows, in SNES pixels of parallax.
 #define DEPTH3D_MAX     12
+
+// The SNES does not composite whole planes at one depth: it interleaves each
+// plane's two tile priorities with the four sprite priorities, so a plane's
+// high-priority tiles sit in front of sprites that are themselves in front of
+// the same plane's low-priority tiles. Every one of those slots can therefore
+// be given its own stereoscopic depth. Order here is the menu's order, not the
+// hardware's -- which slot a plane's priority lands on depends on the
+// background mode and is resolved while rendering.
+typedef enum {
+    DEPTH3D_BG1_PRIO0,
+    DEPTH3D_BG1_PRIO1,
+    DEPTH3D_BG2_PRIO0,
+    DEPTH3D_BG2_PRIO1,
+    DEPTH3D_BG3_PRIO0,
+    DEPTH3D_BG3_PRIO1,
+    DEPTH3D_BG4_PRIO0,
+    DEPTH3D_BG4_PRIO1,
+    DEPTH3D_OBJ_PRIO0,
+    DEPTH3D_OBJ_PRIO1,
+    DEPTH3D_OBJ_PRIO2,
+    DEPTH3D_OBJ_PRIO3,
+    DEPTH3D_SLOT_COUNT,
+} DEPTH3D_SLOT;
+
+#define DEPTH3D_BG_SLOT(bg, priority)   ((bg) * 2 + (priority))
+#define DEPTH3D_OBJ_SLOT(priority)      (DEPTH3D_OBJ_PRIO0 + (priority))
 
 #include <stdio.h>
 #include <array>
@@ -206,7 +236,7 @@ typedef struct {
     bool                Depth3DEnabled;         // Per-layer stereoscopic depth: give each SNES plane
                                                 // its own depth instead of a flat game screen.
 
-    s8                  Depth3D[5];             // Depth of each plane, index = LAYER_ID (BG1-4, OBJ).
+    s8                  Depth3D[DEPTH3D_SLOT_COUNT];  // Depth of each plane-and-priority slot.
                                                 // Unit is SNES pixels of parallax at a fully open 3D
                                                 // slider: 0 = at the screen, > 0 = behind it,
                                                 // < 0 = in front of it.
@@ -277,7 +307,7 @@ typedef struct {
     bool                isRomLoaded;
     bool                isDirty;               // needs saving to disk
     bool                cheatsDirty;
-    bool                menuTabDirty[4];
+    bool                menuTabDirty[MENU_TAB_DIRTY_COUNT];
 } S9xSettings3DS;
 
 extern S9xSettings3DS settings3DS;
