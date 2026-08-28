@@ -25,6 +25,19 @@ Some games show a thin flickering horizontal line, often at the very top of the 
 ## Audio accuracy
 This core is based on **snes9x 1.43**, which uses the older, less accurate SNES APU rather than Blargg's APU, so a few games have inaccurate or glitchy audio.
 
+## Per-layer 3D depth
+
+A plane given a depth slides sideways between the two eyes, so the renderer
+draws extra tile columns past both screen edges to fill the strip that
+uncovers. That margin is generated for the normal background paths (including
+offset-per-tile and mosaic) and for sprites, but not yet for Mode 7 or the
+hi-res Mode 5/6 path, so giving depth to a plane drawn by those can leave a gap
+at one edge of each eye. Leave them at `0` for now.
+
+Windows and colour-math regions stay in screen space rather than moving with
+the plane they mask, so a windowed effect over a plane with depth is off by
+that plane's shift at the mask edge.
+
 ## Game-specific issues
 
 The tables are based on the [Snes9x for 3DS Compatibility List](http://wiki.gbatemp.net/wiki/Snes9x_for_3DS), narrowed to titles flagged with problems (entries reported as running fine were removed). The original list is partly outdated and not all entries have been re-verified for this fork, so treat it as a starting point, not a guarantee.
