@@ -617,9 +617,17 @@ void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side) {
     GPU3DSExt.stereo.eye = GPU3DSExt.stereo.active ? (side == GFX_RIGHT ? 1 : -1) : 0;
     GPU3DS.snesSide = GPU3DSExt.stereo.active ? side : GFX_LEFT;
 
+    // Which texture TARGET_SNES_MAIN resolves to depends on the eye, and the eye
+    // is not part of the packed render state, so the target has to be forced to
+    // re-apply. Without this a frame whose sub screen is empty never changes the
+    // target field between the two passes, and the second eye draws into the
+    // first eye's screen while its own keeps the frame before.
+    GPU3DS.appliedRenderState.target = TARGET_UNSET;
+
     gpu3dsDrawSnesScreen();
 
     GPU3DS.snesSide = GFX_LEFT;
+    GPU3DS.appliedRenderState.target = TARGET_UNSET;
 }
 
 //---------------------------------------------------------

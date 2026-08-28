@@ -3,7 +3,12 @@
 .fvec       textureScale        ; #4
 .fvec       textureOffset       ; #5 
                                 ; x = texture offset (0.0 or 1.0 for mode5/6 hi-res flipping)
-.fvec       slotOffset[17]      ; #6 - 22
+.fvec       updateFrame         ; #6
+                                ; Unused here. The 3DS has one float uniform bank for
+                                ; every vertex program, so this reserves the register
+                                ; shader_mode7 reads its frame counter from; without it
+                                ; the two overwrite each other.
+.fvec       slotOffset[17]      ; #7 - 23
                                 ; x = horizontal shift, in pixels, for each SNES depth slot.
                                 ; The slot is the plane-and-priority the vertex belongs to, so
                                 ; every one of them can sit at its own stereoscopic depth.
