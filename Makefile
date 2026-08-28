@@ -402,7 +402,10 @@ release : 3dsx cia
 	$(SILENTMSG) $(notdir $<)
 	$(bin2o)
 	
--include $(DEPSDIR)/*.d
+# Sources in subdirectories put their dependency files in matching
+# subdirectories, so those have to be included too or a header change never
+# rebuilds them.
+-include $(DEPSDIR)/*.d $(DEPSDIR)/*/*.d
 
 #---------------------------------------------------------------------------------------
 endif
