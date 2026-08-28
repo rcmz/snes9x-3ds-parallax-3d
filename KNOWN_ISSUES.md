@@ -36,6 +36,12 @@ depth to a plane drawn that way can leave a gap at one edge of each eye.
 Mode 7 encodes depth as a single bit rather than one of the interleaved slots,
 so its planes take no depth at all.
 
+The margin draws real tilemap content, but a game only keeps that content valid
+where it expects to draw. As a room scrolls, the column just outside the screen
+can hold what the game has already overwritten for somewhere else, so a slot
+with depth can show a strip of unrelated tiles at one edge. Keeping the slots
+the camera follows at `0` avoids it.
+
 Windows and colour-math regions stay in screen space rather than moving with the
 slot they mask, so a windowed effect over a slot with depth is off by that slot's
 shift at the mask edge.
