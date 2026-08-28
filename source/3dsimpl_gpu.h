@@ -264,6 +264,31 @@ void gpu3dsUpdateStereoLayerShiftsForPreview();
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
 
 //---------------------------------------------------------
+// How far a background's two tile priorities pull apart, in
+// pixels, when the low priority is the one sitting further back.
+//
+// Only the priority that is further back can sensibly continue
+// into the gap between them, and extending the low priority is
+// safe because it also draws behind the high one, so the fill
+// stays hidden wherever the high priority is opaque. The
+// opposite arrangement -- the high priority further back -- would
+// have to paint over the low priority to fill anything, which
+// would cost more than the gap does, so it is left alone.
+//---------------------------------------------------------
+static inline int gpu3dsGetPriorityFillWidth(int bg)
+{
+    const SStereoLayerState *stereo = &GPU3DSExt.stereo;
+
+    if (!stereo->active)
+        return 0;
+
+    int lowShift = stereo->slotShift[DEPTH3D_BG_SLOT(bg, 0)];
+    int highShift = stereo->slotShift[DEPTH3D_BG_SLOT(bg, 1)];
+
+    return lowShift > highShift ? lowShift - highShift : 0;
+}
+
+//---------------------------------------------------------
 // Records which depth slots a background's two tile priorities
 // land on. Which slot that is depends on the background mode,
 // so it is recorded where the modes assign it rather than

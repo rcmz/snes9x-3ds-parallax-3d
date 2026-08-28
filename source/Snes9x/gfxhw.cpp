@@ -704,12 +704,16 @@ inline void __attribute__((always_inline)) S9xCommitMode7LayerSection(bool reuse
 //-------------------------------------------------------------------
 // Draw a full tile 8xh tile using 3D hardware
 //-------------------------------------------------------------------
+// sliceX0/sliceX1 select a horizontal slice of the tile, in pixels from its left
+// edge. The default covers the whole tile; the priority-boundary fill uses a
+// narrower slice to cover only the strip that the two priorities uncover.
 inline void __attribute__((always_inline)) S9xDrawBGFullTileHardwareInline (
     int tileSize, int tileShift, int paletteShift, int paletteMask, int startPalette, bool directColourMode,
 	bool variantPossible,
 	int prio, int depth0, int depth1,
 	int32 snesTile, int32 screenX, int32 screenY,
-	int32 startLine, int32 height, bool stretchedTy)
+	int32 startLine, int32 height, bool stretchedTy,
+	int32 sliceX0 = 0, int32 sliceX1 = 8)
 {
     uint32 TileAddr = BG.TileAddress + ((snesTile & 0x3ff) << tileShift);
 
@@ -794,14 +798,14 @@ inline void __attribute__((always_inline)) S9xDrawBGFullTileHardwareInline (
 	// Render tile
 	//
 	int hiShift = GPU3DSExt.render2x.enabled ? 1 : 0;
-	int x0 = screenX << hiShift;
+	int x0 = (screenX + sliceX0) << hiShift;
 	int y0 = screenY + (prio == 0 ? depth0 : depth1);
-	int x1 = x0 + (8 << hiShift);
+	int x1 = (screenX + sliceX1) << hiShift;
 	int y1 = y0 + height;
 
-	int tx0 = 0;
+	int tx0 = sliceX0;
 	int ty0 = startLine >> 3;
-	int tx1 = 8;
+	int tx1 = sliceX1;
 	int ty1 = stretchedTy ? (ty0 + 1) : (ty0 + height); // // +1: nearest-neighbour floors all rows to ty0
 
 	gpu3dsAddTileVertexes(
@@ -1689,6 +1693,20 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 
 			int tilesToDraw = 32 + (marginX >> 2) + ((HPos & 7) ? 1 : 0);
 
+			// A background stores one tile per cell, so giving its two tile
+			// priorities different depths slides those cells apart and uncovers
+			// a strip with nothing behind it. Extending the nearest tile of the
+			// low priority across each boundary fills that strip with the
+			// continuation of whatever it belonged to. Both sides are filled,
+			// because the two eyes pull apart in opposite directions and share
+			// this geometry.
+			const int fillWidth = gpu3dsGetPriorityFillWidth(bg);
+
+			int32 fillTile = 0;
+			bool haveFillTile = false;
+			int fillForward = 0;    // cells still to extend into after a low-priority run
+			int highRun = 0;        // consecutive high-priority cells seen so far
+
 			// Middle, unclipped tiles
 			//Count = Width - Count;
 			//int Middle = Count >> 3;
@@ -1723,6 +1741,50 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 						variantPossible,
 						tpriority, depth0, depth1,
 						modifiedTile, sX, sY, VirtAlign, Lines, stretchedTy);
+
+					if (fillWidth)
+					{
+						if (tpriority == 0)
+						{
+							// Extend back over the high-priority cells just passed.
+							for (int back = 1; back * 8 - 8 < fillWidth && back <= highRun; back++)
+							{
+								int32 width = fillWidth - (back - 1) * 8;
+								if (width > 8) width = 8;
+
+								S9xDrawBGFullTileHardwareInline(
+									tileSize, tileShift, paletteShift, paletteMask, startPalette, directColourMode,
+									variantPossible,
+									0, depth0, depth1,
+									modifiedTile, sX - back * 8, sY, VirtAlign, Lines, stretchedTy,
+									8 - width, 8);
+							}
+
+							fillTile = modifiedTile;
+							haveFillTile = true;
+							fillForward = (fillWidth + 7) >> 3;
+							highRun = 0;
+						}
+						else
+						{
+							if (fillForward > 0 && haveFillTile)
+							{
+								int32 width = fillWidth - highRun * 8;
+								if (width > 8) width = 8;
+
+								S9xDrawBGFullTileHardwareInline(
+									tileSize, tileShift, paletteShift, paletteMask, startPalette, directColourMode,
+									variantPossible,
+									0, depth0, depth1,
+									fillTile, sX, sY, VirtAlign, Lines, stretchedTy,
+									0, width);
+
+								fillForward--;
+							}
+
+							highRun++;
+						}
+					}
 				}
 
 				if (tileSize == 8)
