@@ -10,3 +10,8 @@ releases/*
 
 _notes/*
 libs
+# test-harness output
+dbg*.png
+dbg*.log
+layouttest*.png
+layouttest*.log
