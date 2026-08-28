@@ -213,11 +213,12 @@ typedef struct
     // -1 = left, +1 = right, 0 = flat (no per-layer shift)
     s8              eye;
 
-    // Extra pixels rendered outside the visible SNES width, so that a layer
-    // shifted towards one edge still has real tile content to show there
-    // instead of a gap. The whole frame is drawn offset by this much and the
-    // presented quad samples from marginX to marginX + renderWidth.
-    s8              marginX;
+    // Largest and smallest shift in force this frame. A slot displaced towards
+    // one screen edge shows, at the opposite edge, whatever the tilemap holds
+    // outside the visible area -- which the game is free to have reused for
+    // somewhere else. These bound the strip each eye has to leave undrawn.
+    s8              shiftMax;
+    s8              shiftMin;
 
     // true when at least one layer has a non-zero shift this frame
     bool            active;
@@ -261,6 +262,26 @@ void gpu3dsPrepareSnesScreenForNextFrame();
 void gpu3dsDrawSnesScreen();
 void gpu3dsUpdateStereoLayerShifts();
 void gpu3dsUpdateStereoLayerShiftsForPreview();
+
+//---------------------------------------------------------
+// Width, in SNES pixels, that an eye must leave undrawn at each
+// screen edge. A shifted slot pulls content in from outside the
+// visible area, and the game only keeps the tilemap valid where
+// it means to draw, so that strip is not shown at all rather
+// than shown wrong. This is the stereo window, and putting it in
+// front of everything is what makes the edges read cleanly.
+//---------------------------------------------------------
+static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *right)
+{
+    const SStereoLayerState *stereo = &GPU3DSExt.stereo;
+    int eye = side == GFX_RIGHT ? 1 : -1;
+
+    int pulledFromLeft = eye > 0 ? stereo->shiftMax : -stereo->shiftMin;
+    int pulledFromRight = eye > 0 ? -stereo->shiftMin : stereo->shiftMax;
+
+    *left = pulledFromLeft > 0 ? pulledFromLeft : 0;
+    *right = pulledFromRight > 0 ? pulledFromRight : 0;
+}
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
 
 //---------------------------------------------------------

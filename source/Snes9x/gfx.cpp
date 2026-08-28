@@ -1201,8 +1201,6 @@ void S9xSetupOBJ ()
     };
     
     int index = PPU.OBJSizeSelect > 7 ? 5 : PPU.OBJSizeSelect;
-    const int marginX = GPU3DSExt.stereo.marginX;
-
     int SmallWidth = sizes[index][0];
     int SmallHeight = sizes[index][1];
     int LargeWidth = sizes[index][2];
@@ -1254,11 +1252,7 @@ void S9xSetupOBJ ()
 			int HPos = PPU.OBJ[S].HPos;
 			HPos = (HPos == -256) ? 256 : HPos;
 
-			// Sprites just outside the screen are kept when the sprite plane has
-			// stereo depth, because the shift can bring them into view. The tile
-			// budget below still counts only the genuinely on-screen part, so the
-			// hardware's per-scanline sprite limits are unchanged.
-			if (HPos > -Width - marginX && HPos <= 256 + marginX)
+			if (HPos > -Width && HPos <= 256)
 			{
 				int visibleTiles = S9xOBJOnScreenTiles(HPos, Width);
 				GFX.OBJVisibleTiles[S] = visibleTiles;
@@ -1333,7 +1327,7 @@ void S9xSetupOBJ ()
 			int HPos = PPU.OBJ[S].HPos;
 			HPos = (HPos == -256) ? 256 : HPos;
 
-			if (HPos > -Width - marginX && HPos <= 256 + marginX) {
+			if (HPos > -Width && HPos <= 256) {
 				GFX.OBJVisibleTiles[S] = S9xOBJOnScreenTiles(HPos, Width);
 
 				for (uint8 line = 0, Y = (uint8)(PPU.OBJ[S].VPos & 0xff); line < Height; Y++, line++) {

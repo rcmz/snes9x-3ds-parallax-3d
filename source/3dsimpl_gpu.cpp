@@ -321,12 +321,6 @@ void gpu3dsDrawTiledLayer(SLayer *layer, u16 *indices, int from, int to, bool bu
 }
 
 void gpu3dsDrawLayers(SLayerList *list, bool buildIndices) {
-    const SStereoLayerState *stereo = &GPU3DSExt.stereo;
-
-    // Every layer is drawn through the frame's off-screen margin. The stereo
-    // shift itself is per depth slot and comes from the shader, not from here.
-    GPU3DS.currentRenderState.parallax = stereo->marginX;
-
     // draw window_lr into depth buffer first
     SLayer *layer = &list->layers[LAYER_WINDOW_LR];
 
@@ -369,8 +363,6 @@ void gpu3dsDrawLayers(SLayerList *list, bool buildIndices) {
             }
         }
     }
-
-    GPU3DS.currentRenderState.parallax = 0;
 }
 
 
@@ -561,16 +553,11 @@ void gpu3dsDrawSnesScreen() {
 }
 
 //---------------------------------------------------------
-// Recomputes the shifts for the preview shown while paused.
-//
-// The frame on screen was built with the margin in force when it
-// was rendered, so that margin has to stand and the shifts are
-// clamped to what it covers. Anything larger only takes effect
-// once the game runs again and builds a frame to match.
+// Recomputes the shifts for the preview shown while paused, so
+// the menu's sliders can be judged against the frame on screen.
 //---------------------------------------------------------
 void gpu3dsUpdateStereoLayerShiftsForPreview() {
     SStereoLayerState *stereo = &GPU3DSExt.stereo;
-    s8 builtMargin = stereo->marginX;
     s8 previousSource[SNES_DEPTH_SLOTS];
 
     memcpy(previousSource, stereo->depthSlotSource, sizeof(previousSource));
@@ -579,12 +566,6 @@ void gpu3dsUpdateStereoLayerShiftsForPreview() {
 
     // The mapping is recorded while rendering, which is not happening now.
     memcpy(stereo->depthSlotSource, previousSource, sizeof(previousSource));
-    stereo->marginX = builtMargin;
-
-    for (int i = 0; i < DEPTH3D_SLOT_COUNT; i++) {
-        if (stereo->slotShift[i] > builtMargin) stereo->slotShift[i] = builtMargin;
-        if (stereo->slotShift[i] < -builtMargin) stereo->slotShift[i] = -builtMargin;
-    }
 }
 
 //---------------------------------------------------------
@@ -642,7 +623,8 @@ void gpu3dsUpdateStereoLayerShifts() {
     memset(stereo->depthSlotSource, -1, sizeof(stereo->depthSlotSource));
     stereo->active = false;
     stereo->eye = 0;
-    stereo->marginX = 0;
+    stereo->shiftMax = 0;
+    stereo->shiftMin = 0;
 
     // The 512px render path already uses the full width of the render
     // target, leaving no room for the off-screen margin the shifted
@@ -658,16 +640,16 @@ void gpu3dsUpdateStereoLayerShifts() {
     for (int i = 0; i < DEPTH3D_SLOT_COUNT; i++) {
         int shift = (int)lroundf(settings3DS.Depth3D[i] * strength);
 
-        if (shift < -PARALLAX_SHIFT_MAX) shift = -PARALLAX_SHIFT_MAX;
-        if (shift > PARALLAX_SHIFT_MAX) shift = PARALLAX_SHIFT_MAX;
+        if (shift < -DEPTH3D_SHIFT_MAX) shift = -DEPTH3D_SHIFT_MAX;
+        if (shift > DEPTH3D_SHIFT_MAX) shift = DEPTH3D_SHIFT_MAX;
 
         stereo->slotShift[i] = (s8)shift;
 
-        if (abs(shift) > stereo->marginX)
-            stereo->marginX = (s8)abs(shift);
+        if (shift > stereo->shiftMax) stereo->shiftMax = (s8)shift;
+        if (shift < stereo->shiftMin) stereo->shiftMin = (s8)shift;
     }
 
-    if (!stereo->marginX)
+    if (!stereo->shiftMax && !stereo->shiftMin)
         return;
 
     stereo->active = true;
@@ -676,9 +658,6 @@ void gpu3dsUpdateStereoLayerShifts() {
     for (int priority = 0; priority < 4; priority++)
         stereo->depthSlotSource[(priority + 1) * 3] = (s8)DEPTH3D_OBJ_SLOT(priority);
 
-    // Round up to a whole tile so the background loops can simply draw
-    // marginX / 8 extra tile columns on each side.
-    stereo->marginX = (s8)((stereo->marginX + 7) & ~7);
 }
 
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub, bool reuseVertices) {

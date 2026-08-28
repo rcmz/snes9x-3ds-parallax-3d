@@ -17,7 +17,6 @@
 #define BW_TEX_OFFSET   2
 #define BW_DEPTH_TEST   2
 #define BW_SHADER       2
-#define BW_PARALLAX     6
 
 #define PACKED_MASK(width, offset) (((1ULL << (width)) - 1ULL) << (offset))
 
@@ -30,7 +29,6 @@
 #define OFF_TEX_OFFSET   (OFF_ALPHA_TEST + BW_ALPHA_TEST)
 #define OFF_DEPTH_TEST   (OFF_TEX_OFFSET + BW_TEX_OFFSET)
 #define OFF_SHADER       (OFF_DEPTH_TEST + BW_DEPTH_TEST)
-#define OFF_PARALLAX     (OFF_SHADER + BW_SHADER)
 
 #define PACKED_MASK_STENCIL      PACKED_MASK(BW_STENCIL,     OFF_STENCIL)
 #define PACKED_MASK_TEX_BIND     PACKED_MASK(BW_TEX_BIND,    OFF_TEX_BIND)
@@ -41,18 +39,6 @@
 #define PACKED_MASK_TEX_OFFSET   PACKED_MASK(BW_TEX_OFFSET,  OFF_TEX_OFFSET)
 #define PACKED_MASK_DEPTH_TEST   PACKED_MASK(BW_DEPTH_TEST,  OFF_DEPTH_TEST)
 #define PACKED_MASK_SHADER       PACKED_MASK(BW_SHADER,      OFF_SHADER)
-#define PACKED_MASK_PARALLAX     PACKED_MASK(BW_PARALLAX,    OFF_PARALLAX)
-
-// Stereo parallax: horizontal shift (in SNES pixels) applied to a whole SNES layer
-// when rendering the per-eye frames. Signed, so a zeroed render state means "no shift".
-#define PARALLAX_MIN    (-32)
-#define PARALLAX_MAX    31
-
-// A layer is drawn at the frame's off-screen margin plus or minus its own shift,
-// and the margin is the largest shift rounded up to a tile. Capping a single
-// shift at half the field keeps that sum inside it.
-#define PARALLAX_SHIFT_MAX  (PARALLAX_MAX / 2)
-
 
 #define DISPLAY_TRANSFER_FMT GX_TRANSFER_FMT_RGB8
 
@@ -268,7 +254,7 @@ typedef union {
         SGPU_STATE depthTest : BW_DEPTH_TEST;
 
         SGPU_SHADER_PROGRAM shader : BW_SHADER;
-        s32 parallax : BW_PARALLAX; // per-layer stereo shift in SNES pixels, 0 = none
+        u32 _padding : 6;
     };
     u64 packed;
 } SGPURenderState;
@@ -383,7 +369,6 @@ void gpu3dsDisableAlphaBlendingKeepDestAlpha();
 void gpu3dsSetDefaultRenderState(SGPU_SHADER_PROGRAM shader, bool isSecondScreen = false);
 void gpu3dsSetFragmentOperations(SGPURenderState *state, u64 diff);
 void gpu3dsSetShaderAndUniforms(SGPURenderState *state, u64 diff, bool targetUpdated, bool textureUpdated);
-void gpu3dsUploadTargetProjection(SGPUTexture *targetFromTex, int parallax);
 float gpu3dsGetLayerDepthStrength();
 
 

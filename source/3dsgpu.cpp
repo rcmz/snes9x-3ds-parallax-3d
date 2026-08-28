@@ -343,29 +343,8 @@ void gpu3dsSetFragmentOperations(SGPURenderState *state, u64 diff) {
     }
 }
 
-//---------------------------------------------------------
-// Uploads the projection matrix for a texture render target,
-// shifted horizontally by the layer's stereo parallax (in SNES
-// pixels). The shift is applied to the projection rather than to
-// the vertices so that the same vertex data can be replayed for
-// both eyes.
-//---------------------------------------------------------
-void gpu3dsUploadTargetProjection(SGPUTexture *targetFromTex, int parallax)
-{
-    if (parallax == 0) {
-        C3D_FVUnifMtx4x4(GPU_GEOMETRY_SHADER, GPU3DS.shaderULocs[ULOC_PROJECTION], &targetFromTex->projection);
-    } else {
-        C3D_Mtx projection = targetFromTex->projection;
-        Mtx_Translate(&projection, (float)parallax, 0.0f, 0.0f, true);
-        C3D_FVUnifMtx4x4(GPU_GEOMETRY_SHADER, GPU3DS.shaderULocs[ULOC_PROJECTION], &projection);
-    }
-
-    GPU3DS.currentRenderTargetDim = targetFromTex->tex.dim;
-}
-
 void gpu3dsSetShaderAndUniforms(SGPURenderState *state, u64 diff, bool targetUpdated, bool textureUpdated) {
     bool shaderUpdated = diff & PACKED_MASK_SHADER;
-    bool parallaxUpdated = diff & PACKED_MASK_PARALLAX;
 
     if (shaderUpdated) {
         C3D_BindProgram(&GPU3DS.shaders[state->shader].shaderProgram);
@@ -375,7 +354,7 @@ void gpu3dsSetShaderAndUniforms(SGPURenderState *state, u64 diff, bool targetUpd
     }
 
     // set projection
-    if (targetUpdated || shaderUpdated || parallaxUpdated)
+    if (targetUpdated || shaderUpdated)
     {
         if (state->target == TARGET_SCREEN_GAME || state->target == TARGET_SCREEN_SECOND) {
             gfxScreen_t screen = state->target == TARGET_SCREEN_GAME ? settings3DS.GameScreen : settings3DS.SecondScreen;
@@ -384,8 +363,9 @@ void gpu3dsSetShaderAndUniforms(SGPURenderState *state, u64 diff, bool targetUpd
         } else {
             SGPUTexture *targetFromTex = &GPU3DS.textures[gpu3dsGetTargetTexture(state->target)];
 
-            if (targetFromTex->tex.dim != GPU3DS.currentRenderTargetDim || parallaxUpdated) {
-                gpu3dsUploadTargetProjection(targetFromTex, state->parallax);
+            if (targetFromTex->tex.dim != GPU3DS.currentRenderTargetDim) {
+                C3D_FVUnifMtx4x4(GPU_GEOMETRY_SHADER, GPU3DS.shaderULocs[ULOC_PROJECTION], &targetFromTex->projection);
+                GPU3DS.currentRenderTargetDim = targetFromTex->tex.dim;
             }
         }
     }

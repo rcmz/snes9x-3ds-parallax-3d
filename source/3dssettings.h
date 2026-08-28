@@ -8,6 +8,10 @@
 // Largest per-slot depth the UI allows, in SNES pixels of parallax.
 #define DEPTH3D_MAX     12
 
+// Ceiling on the shift a slot can end up with once the 3D slider and the 3D
+// intensity setting have scaled its depth.
+#define DEPTH3D_SHIFT_MAX   (DEPTH3D_MAX * 2)
+
 // The SNES does not composite whole planes at one depth: it interleaves each
 // plane's two tile priorities with the four sprite priorities, so a plane's
 // high-priority tiles sit in front of sprites that are themselves in front of

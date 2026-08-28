@@ -712,10 +712,27 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, SVertexList *lis
 		img3dsDrawBackground(UI_BG_GAME, paused, xOffset);
 	}
 
+	// Leave the stereo window's edges undrawn. A slot with depth would otherwise
+	// show, at one edge, whatever lies outside the visible area of the tilemap,
+	// which the game is free to have reused for somewhere else.
+	GameScreenViewport eyeViewport = gameScreenViewport;
+
+	if (GPU3DSExt.stereo.active && !screenshot.dirty) {
+		int maskLeft, maskRight;
+		gpu3dsGetStereoEdgeMask(GPU3DS.activeSide, &maskLeft, &maskRight);
+
+		float pixelsPerTexel = (float)(eyeViewport.sx1 - eyeViewport.sx0) / (eyeViewport.tx1 - eyeViewport.tx0);
+
+		eyeViewport.tx0 += maskLeft;
+		eyeViewport.tx1 -= maskRight;
+		eyeViewport.sx0 += (int)(maskLeft * pixelsPerTexel + 0.5f);
+		eyeViewport.sx1 -= (int)(maskRight * pixelsPerTexel + 0.5f);
+	}
+
 	gpu3dsAddSimpleQuadVertexes(
-		gameScreenViewport.sx0, gameScreenViewport.sy0, gameScreenViewport.sx1, gameScreenViewport.sy1,
-		gameScreenViewport.tx0, gameScreenViewport.ty0,
-		gameScreenViewport.tx1, gameScreenViewport.ty1, 0);
+		eyeViewport.sx0, eyeViewport.sy0, eyeViewport.sx1, eyeViewport.sy1,
+		eyeViewport.tx0, eyeViewport.ty0,
+		eyeViewport.tx1, eyeViewport.ty1, 0);
 
 	// Sample this eye's own copy of the SNES screen.
 	SGPU_TEXTURE_ID snesScreen = GPU3DSExt.stereo.active
@@ -729,8 +746,8 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, SVertexList *lis
 
 	if (balancedFilterEnabled) {
 		gpu3dsAddSimpleQuadVertexes(
-			gameScreenViewport.sx0, gameScreenViewport.sy0, gameScreenViewport.sx1, gameScreenViewport.sy1,
-			gameScreenViewport.tx0, gameScreenViewport.ty0, gameScreenViewport.tx1, gameScreenViewport.ty1, 0, 0xFFFFFF88);
+			eyeViewport.sx0, eyeViewport.sy0, eyeViewport.sx1, eyeViewport.sy1,
+			eyeViewport.tx0, eyeViewport.ty0, eyeViewport.tx1, eyeViewport.ty1, 0, 0xFFFFFF88);
 
 		// Temporarily switch to linear sampling for the blend pass.
 		C3D_TexSetFilter(&GPU3DS.textures[snesScreen].tex, GPU_LINEAR, GPU_LINEAR);
@@ -791,9 +808,9 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 	 	gameScreenViewport.sy0 = screenshot.y;
         gameScreenViewport.sx1 = gameScreenViewport.sx0 + gameScreenViewport.sWidth;
         gameScreenViewport.sy1 = gameScreenViewport.sy0 + gameScreenViewport.cHeight;
-        gameScreenViewport.tx0 = static_cast<float>(GPU3DSExt.stereo.marginX);
+        gameScreenViewport.tx0 = 0.0f;
         gameScreenViewport.ty0 = 0.0f;
-        gameScreenViewport.tx1 = gameScreenViewport.tx0 + static_cast<float>(GPU3DSExt.renderWidth);
+        gameScreenViewport.tx1 = static_cast<float>(GPU3DSExt.renderWidth);
         gameScreenViewport.ty1 = static_cast<float>(PPU.ScreenHeight);
 
         GPU3DS.activeSide = GFX_LEFT;
@@ -853,11 +870,9 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
     gameScreenViewport.sx1 = gameScreenViewport.sx0 + gameScreenViewport.sWidth;
     gameScreenViewport.sy1 = gameScreenViewport.sy0 + gameScreenViewport.cHeight;
 	
-    // Start half a pixel in from the edges so linear filtering can't leave a thin line.
-    // The stereo margin is rendered outside the visible width and skipped here.
-    float marginX = static_cast<float>(GPU3DSExt.stereo.marginX);
-    gameScreenViewport.tx0 = marginX + 0.5f;
-    gameScreenViewport.tx1 = marginX + static_cast<float>(GPU3DSExt.renderWidth) - 0.5f;
+    // Start half a pixel in from the edges so linear filtering can't leave a thin line
+    gameScreenViewport.tx0 = 0.5f;
+    gameScreenViewport.tx1 = static_cast<float>(GPU3DSExt.renderWidth) - 0.5f;
     gameScreenViewport.ty0 = static_cast<float>(cropTopSource) + (cropTopSource == 0 ? 0.5f : 0.0f);
     gameScreenViewport.ty1 = static_cast<float>(PPU.ScreenHeight - cropBottomSource) - (cropBottomSource == 0 ? 0.5f : 0.0f);
 

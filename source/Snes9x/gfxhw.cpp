@@ -1063,11 +1063,7 @@ inline void __attribute__((always_inline)) S9xDrawOffsetBackgroundHardwarePriori
 		// For those lines, draw the tiles column by column 
 		// (from the left to the right of the screen)
 		//
-			// Extend past both screen edges by the stereo margin so a layer with
-			// depth still has tile content where the visible window now falls.
-			const int marginX = GPU3DSExt.stereo.marginX;
-
-			for (int Left = -marginX; Left <= 256 + marginX; Left += 8)	// Bug fix: It should be Left <= 256 instead of Left < 256
+			for (int Left = 0; Left <= 256; Left += 8)	// Bug fix: It should be Left <= 256 instead of Left < 256
 			{
 				for (uint32 Y = OY; Y < OY + (uint32)TotalLines; )
 				{
@@ -1126,9 +1122,7 @@ inline void __attribute__((always_inline)) S9xDrawOffsetBackgroundHardwarePriori
 				uint32 Lines;
 				
 				//int sX = Left;
-				// The hardware cannot apply per-tile offsets to the leftmost visible
-				// column; the off-screen margin columns follow the same rule.
-				bool8 left_hand_edge = (Left <= 0);
+				bool8 left_hand_edge = (Left == 0);
 				//Width = Right - Left;
 				
 				//while (Left < Right) 
@@ -1253,7 +1247,7 @@ inline void __attribute__((always_inline)) S9xDrawOffsetBackgroundHardwarePriori
 					int sX = Left - Offset;
 
 					// Don't display anything beyond the right edge.
-					if (sX >= 256 + marginX)
+					if (sX >= 256)
 						break;
 
 					Tile = READ_2BYTES(t);
@@ -1661,12 +1655,7 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 				}
 
 
-			// Start a whole number of tiles to the left of the screen and end the
-			// same distance past its right edge, so a layer shifted for stereo
-			// depth still has tile content where the visible window now falls.
-			const int marginX = GPU3DSExt.stereo.marginX;
-
-			uint32 HPos = (HOffset + Left - marginX) & OffsetMask;
+			uint32 HPos = (HOffset + Left) & OffsetMask;
 
 			uint32 Quot = HPos >> 3;
 
@@ -1687,11 +1676,11 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 			}
 
 			// screen coordinates of the tile.
-			int sX = 0 - marginX - (HPos & 7);
+			int sX = 0 - (HPos & 7);
 			int sY = Y;
 
 
-			int tilesToDraw = 32 + (marginX >> 2) + ((HPos & 7) ? 1 : 0);
+			int tilesToDraw = sX == 0 ? 32 : 33;
 
 			// A background stores one tile per cell, so giving its two tile
 			// priorities different depths slides those cells apart and uncovers
@@ -2105,12 +2094,7 @@ void S9xDrawBackgroundMosaicHardware(
 
         int outBlockW = S;
 
-        // Extend past both screen edges by whole mosaic blocks, so a layer with
-        // stereo depth still has content where the visible window now falls.
-        const int marginX = GPU3DSExt.stereo.marginX;
-        const int marginBlocks = (marginX + S - 1) / S;
-
-        for (int X = -marginBlocks * S; X < 256 + marginX; X += outBlockW)
+        for (int X = 0; X < 256; X += outBlockW)
         {
             // In hires mode we render to 256-wide output while sampling from
             // 512-wide source coordinates.
@@ -2211,7 +2195,7 @@ void S9xDrawBackgroundMosaicHardware(
             int tx = HPos & 7;
             int ty = MosaicLine & 7;
 
-            int blockW = (X + outBlockW > 256 + marginX) ? (256 + marginX - X) : outBlockW;
+            int blockW = (X + outBlockW > 256) ? (256 - X) : outBlockW;
 
             int yDepth = (tpriority == 0 ? depth0 : depth1);
             int x0 = X << hiShift;
@@ -2813,7 +2797,7 @@ void S9xDrawOBJSHardware (bool8 sub, int depth = 0, int priority = 0)
 					{
 						// No clipping at all.
 						//
-						for (; X <= 256 + GPU3DSExt.stereo.marginX && X < PPU.OBJ[S].HPos + objWidth; X += 8)
+						for (; X <= 256 && X < PPU.OBJ[S].HPos + objWidth; X += 8)
 						{
 							S9xDrawOBJTileHardware2 (sub, priorityOffset, BaseTile|TileX, X, Y, TileLine, TileHeight);
 							TileX=(TileX+TileInc) & 0x0f;
@@ -2867,7 +2851,7 @@ void S9xDrawOBJSHardware (bool8 sub, int depth = 0, int priority = 0)
 				int X = (ppuObj.HPos == -256) ? 256 : ppuObj.HPos;
 				int endX = X + GFX.OBJWidths[S];
 		
-				while (X <= 256 + GPU3DSExt.stereo.marginX && X < endX)
+				while (X <= 256 && X < endX)
 				{
 					S9xDrawOBJTileHardware2(sub, 
 						priorityDepthOffset + ppuObj.Priority * 768, 
