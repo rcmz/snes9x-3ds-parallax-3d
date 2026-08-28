@@ -462,7 +462,7 @@ void gpu3dsPrepareSnesScreenForNextFrame() {
 
     if (GPU3DSExt.render2x.dirty) {
         if (GPU3DSExt.stereo.supported)
-            gpu3dsClearTexture(&GPU3DSExt.stereo.screenRight, 0);
+            gpu3dsClearTexture(&GPU3DS.textures[SNES_MAIN_RIGHT], 0);
         gpu3dsClearTexture(&GPU3DS.textures[SNES_MAIN], 0);
         gpu3dsClearTexture(&GPU3DS.textures[SNES_SUB], 0);
         gpu3dsClearTexture(&GPU3DS.textures[SNES_DEPTH], 0);
@@ -608,31 +608,6 @@ static void gpu3dsUploadDepthSlotOffsets() {
 }
 
 //---------------------------------------------------------
-// Puts the given eye's copy of the SNES screen into the texture
-// table, so every later render-state change addresses it as
-// SNES_MAIN without knowing which eye is being drawn.
-//---------------------------------------------------------
-void gpu3dsSelectSnesScreenEye(gfx3dSide_t side) {
-    SStereoLayerState *stereo = &GPU3DSExt.stereo;
-
-    if (!stereo->supported)
-        side = GFX_LEFT;
-
-    if (stereo->screenSide == side)
-        return;
-
-    SGPUTexture previous = GPU3DS.textures[SNES_MAIN];
-    GPU3DS.textures[SNES_MAIN] = stereo->screenRight;
-    stereo->screenRight = previous;
-    stereo->screenSide = side;
-
-    // The render target and the bound texture both changed underneath the
-    // render state, so force the next draw to re-apply them.
-    GPU3DS.appliedRenderState.target = TARGET_UNSET;
-    GPU3DS.appliedRenderState.textureBind = TEX_UNSET;
-}
-
-//---------------------------------------------------------
 // Draws the whole SNES frame for one eye into that eye's screen
 // texture. The vertex data is built once per frame during
 // emulation and replayed here, with each layer shifted
@@ -640,10 +615,11 @@ void gpu3dsSelectSnesScreenEye(gfx3dSide_t side) {
 //---------------------------------------------------------
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side) {
     GPU3DSExt.stereo.eye = GPU3DSExt.stereo.active ? (side == GFX_RIGHT ? 1 : -1) : 0;
-
-    gpu3dsSelectSnesScreenEye(GPU3DSExt.stereo.active ? side : GFX_LEFT);
+    GPU3DS.snesSide = GPU3DSExt.stereo.active ? side : GFX_LEFT;
 
     gpu3dsDrawSnesScreen();
+
+    GPU3DS.snesSide = GFX_LEFT;
 }
 
 //---------------------------------------------------------

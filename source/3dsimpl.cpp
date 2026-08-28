@@ -204,16 +204,15 @@ bool impl3dsInitialize()
 	setDepthBufferByTex(GPU3DS.textures[SNES_MAIN].target, &GPU3DS.textures[SNES_DEPTH].tex);
 	setDepthBufferByTex(GPU3DS.textures[SNES_SUB].target, &GPU3DS.textures[SNES_DEPTH].tex);
 
-	// Second SNES screen, for the right eye's per-layer depth pass. It is the
-	// last thing to claim VRAM and the emulator runs fine without it, so a
-	// failed allocation only costs the per-layer 3D feature.
-	const SGPUTextureConfig screenRightTexConfig = { defaultTextureParams, SNES_MAIN, GPU_RGBA8, 512, 256 };
-	SGPUTexture *screenRight = &GPU3DSExt.stereo.screenRight;
+	// Second SNES screen, for the right eye's depth pass. It is the last thing
+	// to claim VRAM and the emulator runs fine without it, so a failed
+	// allocation only costs the per-layer 3D feature. A model without a 3D
+	// screen can never use it at all.
+	const SGPUTextureConfig screenRightTexConfig = { defaultTextureParams, SNES_MAIN_RIGHT, GPU_RGBA8, 512, 256 };
+	SGPUTexture *screenRight = &GPU3DS.textures[SNES_MAIN_RIGHT];
 
-	// A model without a 3D screen can never use it, and VRAM is nearly full.
 	GPU3DSExt.stereo.supported = gpu3dsIs3DAvailable()
 		&& gpu3dsAllocVramTextureAndTarget(screenRight, &screenRightTexConfig);
-	GPU3DSExt.stereo.screenSide = GFX_LEFT;
 
 	if (GPU3DSExt.stereo.supported) {
 		setDepthBufferByTex(screenRight->target, &GPU3DS.textures[SNES_DEPTH].tex);
@@ -719,11 +718,12 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, SVertexList *lis
 		gameScreenViewport.tx1, gameScreenViewport.ty1, 0);
 
 	// Sample this eye's own copy of the SNES screen.
-	if (GPU3DSExt.stereo.active)
-		gpu3dsSelectSnesScreenEye(GPU3DS.activeSide);
+	SGPU_TEXTURE_ID snesScreen = GPU3DSExt.stereo.active
+		? gpu3dsGetSnesScreenTexture(GPU3DS.activeSide)
+		: SNES_MAIN;
 
 	GPU3DS.currentRenderState.textureEnv = TEX_ENV_REPLACE_TEXTURE0;
-	GPU3DS.currentRenderState.textureBind = SNES_MAIN;
+	GPU3DS.currentRenderState.textureBind = snesScreen;
 
 	gpu3dsDraw(list, NULL, list->count);
 
@@ -733,18 +733,18 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, SVertexList *lis
 			gameScreenViewport.tx0, gameScreenViewport.ty0, gameScreenViewport.tx1, gameScreenViewport.ty1, 0, 0xFFFFFF88);
 
 		// Temporarily switch to linear sampling for the blend pass.
-		C3D_TexSetFilter(&GPU3DS.textures[SNES_MAIN].tex, GPU_LINEAR, GPU_LINEAR);
-		C3D_TexBind(0, &GPU3DS.textures[SNES_MAIN].tex);
+		C3D_TexSetFilter(&GPU3DS.textures[snesScreen].tex, GPU_LINEAR, GPU_LINEAR);
+		C3D_TexBind(0, &GPU3DS.textures[snesScreen].tex);
 
 		GPU3DS.currentRenderState.textureEnv = TEX_ENV_REPLACE_TEXTURE0_VERTEX_ALPHA;
-		GPU3DS.currentRenderState.textureBind = SNES_MAIN;
+		GPU3DS.currentRenderState.textureBind = snesScreen;
 		GPU3DS.currentRenderState.alphaBlending = ALPHA_BLENDING_ENABLED;
 
 		gpu3dsDraw(list, NULL, list->count);
 
 		// Restore nearest sampling for subsequent draws in balanced mode.
-		C3D_TexSetFilter(&GPU3DS.textures[SNES_MAIN].tex, GPU_NEAREST, GPU_NEAREST);
-		C3D_TexBind(0, &GPU3DS.textures[SNES_MAIN].tex);
+		C3D_TexSetFilter(&GPU3DS.textures[snesScreen].tex, GPU_NEAREST, GPU_NEAREST);
+		C3D_TexBind(0, &GPU3DS.textures[snesScreen].tex);
 		GPU3DS.currentRenderState.alphaBlending = ALPHA_BLENDING_DISABLED;
 		GPU3DS.currentRenderState.textureEnv = TEX_ENV_REPLACE_TEXTURE0;
 	}
@@ -898,10 +898,6 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 		GPU3DS.activeSide = GFX_LEFT;
 	}
 
-	// Leave the left eye's screen in the texture table, so anything that reads
-	// the last frame afterwards -- the pause menu, a screenshot -- gets the eye
-	// it expects rather than whichever one happened to be drawn last.
-	gpu3dsSelectSnesScreenEye(GFX_LEFT);
 }
 
 //---------------------------------------------------------

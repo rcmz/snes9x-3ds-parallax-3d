@@ -382,7 +382,7 @@ void gpu3dsSetShaderAndUniforms(SGPURenderState *state, u64 diff, bool targetUpd
             C3D_Mtx projection = (screen == GFX_TOP) ? GPU3DS.projectionTopScreen : GPU3DS.projectionBottomScreen;
             C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, GPU3DS.shaderULocs[ULOC_PROJECTION], &projection);
         } else {
-            SGPUTexture *targetFromTex = &GPU3DS.textures[(SGPU_TEXTURE_ID)state->target];
+            SGPUTexture *targetFromTex = &GPU3DS.textures[gpu3dsGetTargetTexture(state->target)];
 
             if (targetFromTex->tex.dim != GPU3DS.currentRenderTargetDim || parallaxUpdated) {
                 gpu3dsUploadTargetProjection(targetFromTex, state->parallax);
@@ -1019,7 +1019,7 @@ void gpu3dsSetRenderTargetToFrameBuffer(SGPU_TARGET_ID targetId)
 
 void gpu3dsSetRenderTargetToTexture(SGPU_TARGET_ID target)
 {
-    SGPUTexture *texture = &GPU3DS.textures[target];
+    SGPUTexture *texture = &GPU3DS.textures[gpu3dsGetTargetTexture(target)];
 
     C3D_FrameDrawOn(texture->target);
 }
@@ -1029,7 +1029,7 @@ void gpu3dsBindTexture(SGPU_TEXTURE_ID textureId)
     SGPUTexture *texture = &GPU3DS.textures[textureId];
     
     // texture params are dynamic for main and mode7 texture
-    if (textureId == SNES_MAIN)
+    if (textureId == SNES_MAIN || textureId == SNES_MAIN_RIGHT)
     {
         GPU_TEXTURE_FILTER_PARAM filter;
         if (screenshot.dirty) {

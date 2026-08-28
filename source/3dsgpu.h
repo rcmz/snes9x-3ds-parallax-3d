@@ -118,6 +118,12 @@ typedef enum
 	SNES_MODE7_TILE_0,
 	SNES_TILE_CACHE,
     SNES_MODE7_TILE_CACHE,
+
+    // The right eye's copy of the SNES screen, so the left eye's frame is not
+    // overwritten before it has been sampled. Listed after the ids that line up
+    // one-to-one with SGPU_TARGET_ID above.
+    SNES_MAIN_RIGHT,
+
     
     // --- UI Textures ---
     UI_OVERLAY,
@@ -300,6 +306,9 @@ typedef struct
     SGPU_TOP_MODE               topMode;
     gfx3dSide_t                 activeSide;
     bool                        gameScreenBufferDesync;
+
+    // Which eye's SNES screen the layer passes currently draw into.
+    gfx3dSide_t                 snesSide;
 } SGPU3DS;
 
 extern SGPU3DS GPU3DS;
@@ -378,6 +387,26 @@ void gpu3dsUploadTargetProjection(SGPUTexture *targetFromTex, int parallax);
 float gpu3dsGetLayerDepthStrength();
 
 
+
+//---------------------------------------------------------
+// The SNES screen exists once per eye, so that the frame the
+// left eye still has to sample is not overwritten by the right
+// eye's differently shifted one.
+//---------------------------------------------------------
+static inline SGPU_TEXTURE_ID gpu3dsGetSnesScreenTexture(gfx3dSide_t side)
+{
+    return side == GFX_RIGHT ? SNES_MAIN_RIGHT : SNES_MAIN;
+}
+
+// Maps a render target onto the texture it draws into. Only the SNES screen has
+// more than one; everything else is the identity the two enums share.
+static inline SGPU_TEXTURE_ID gpu3dsGetTargetTexture(SGPU_TARGET_ID target)
+{
+    if (target == TARGET_SNES_MAIN)
+        return gpu3dsGetSnesScreenTexture(GPU3DS.snesSide);
+
+    return (SGPU_TEXTURE_ID)target;
+}
 
 static inline void gpu3dsWaitForVBlank(gfxScreen_t screen) {
     if (screen == GFX_TOP)
