@@ -69,22 +69,33 @@ the interface on priority 1, the rain on priority 0. One depth per plane forces
 them together; one depth per slot lets the interface float in front while the
 rain sits back in the scene.
 
-### When two priorities can be split, and when they cannot
+### Splitting a background's two priorities
 
 A background stores one tile per cell, so its two priorities are not two
 pictures: they are one grid whose cells each belong to one or the other. Giving
 them different depths slides those cells apart, and nothing exists behind the
-gap, so any surface the two priorities tile together tears into holes.
+gap.
 
-Split a background's priorities only when one of them is a **sparse overlay** --
-tiles that sit over the scene rather than forming part of it. Super Metroid's
-BG3 is the clean case: the interface and the rain are both drawn over
-everything else and neither closes a surface, so they separate cleanly. Its BG1
-is the opposite case: the distant pillars and the near terrain are on the same
-background at different priorities, but they tile edge to edge, so pulling them
-apart opens tile-shaped holes.
+Rather than leave a hole there, the renderer extends the nearest tile of the
+priority that sits further back across each boundary, clipped to the width the
+two pull apart. Where that priority is a continuous structure the other one
+overlaps -- Super Metroid's distant Crateria pillars behind its near terrain,
+both on BG1 -- the strip shows the pillar continuing behind the terrain, which
+is what would actually be there.
 
-When in doubt, give a background's two priorities the same depth.
+It is an approximation rather than recovery: the strip is invented from the
+nearest tile, so where that tile is unrelated content the band will smear. At a
+few pixels wide it tends to read as a shadowed edge.
+
+Two arrangements are left alone. Nothing is drawn when the two priorities share
+a depth, and nothing is drawn when the *high* priority is the one further back,
+since filling that would mean painting over the low priority -- more damage than
+the gap. Keep the low priority as the further-back one, which is also the
+natural reading of a background.
+
+The fill covers the ordinary background path. Offset-per-tile backgrounds
+(Modes 2 and 4), mosaic and the hi-res Mode 5/6 path do not have it yet, so
+splitting priorities there can still tear.
 
 ### Using the sliders
 
@@ -97,9 +108,9 @@ distant scenery, which one carries the playfield and which one is the HUD. A
 good starting point is to leave the playfield at `0`, give the slots that scroll
 more slowly a positive depth, and put the interface slightly negative.
 
-Super Metroid, for example, works well at both BG1 priorities `0`, BG2 prio 0
-`8`, BG3 prio 0 `10` for the rain, BG3 prio 1 `-4` for the interface, and
-sprites `-1`.
+Super Metroid, for example, works well at BG1 prio 0 `4` for the distant
+pillars, BG1 prio 1 `0` for the terrain, BG2 prio 0 `8`, BG3 prio 0 `10` for the
+rain, BG3 prio 1 `-4` for the interface, and sprites `-1`.
 
 Pause the game while adjusting: the top screen keeps showing the paused frame
 and redraws it as you move the sliders, so the effect can be judged directly.
