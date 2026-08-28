@@ -549,6 +549,11 @@ void gpu3dsDrawSnesScreen() {
         GPU3DSExt.stereo.listsBuilt = true;
     }
 
+    // The SNES layers are tile geometry whatever the caller was drawing before.
+    // The pause menu in particular begins its frame on the screen shader, and
+    // the per-layer draws below only ever set the target, not the program.
+    GPU3DS.currentRenderState.shader = SPROGRAM_TILES;
+
     gpu3dsDrawMode7Texture();
     gpu3dsDrawLayers(list, firstPass);
 }

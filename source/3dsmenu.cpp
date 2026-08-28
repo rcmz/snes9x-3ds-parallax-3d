@@ -97,12 +97,29 @@ bool menu3dsUpdateThumb(SMenuTab *currentTab, ThumbSource source)
     return false;
 }
 
+//---------------------------------------------------------
+// Separation used for the splash screen. It keeps a baseline
+// even with the 3D slider low, so the logo reads as floating in
+// front of its background rather than collapsing flat, and so the
+// right eye is drawn whenever the top screen is in 3D at all.
+//---------------------------------------------------------
+static float menu3dsGetSplashIOD()
+{
+    if (GPU3DS.topMode != TOP_MODE_3D)
+        return 0.0f;
+
+    float floorIOD = gpu3dsGetIODBase() * 0.4f;
+    float iod = gpu3dsGetIOD();
+
+    return iod > floorIOD ? iod : floorIOD;
+}
+
 void menu3dsDrawSplash(float fade = 1.0f)
 {
     if (settings3DS.isRomLoaded)
         return;
 
-    float iod = gpu3dsGetIOD();
+    float iod = menu3dsGetSplashIOD();
     bool renderRightEye = iod != 0;
 
     GSPGPU_FramebufferFormat gpuBufFmt = (GSPGPU_FramebufferFormat)DISPLAY_TRANSFER_FMT;
@@ -1129,9 +1146,10 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
                         impl3dsSceneRender(true, true);
                         notif3dsHide();
                     } else {
-                        bool renderRightEye = iod != 0;
+                        float splashIOD = menu3dsGetSplashIOD();
+                        bool renderRightEye = splashIOD != 0;
                         gpu3dsClearScreen(settings3DS.GameScreen, renderRightEye);
-                        img3dsDrawSplash(UI_SPLASH, renderRightEye, iod);
+                        img3dsDrawSplash(UI_SPLASH, renderRightEye, splashIOD);
                     }
                 gpu3dsFrameEnd();
             }

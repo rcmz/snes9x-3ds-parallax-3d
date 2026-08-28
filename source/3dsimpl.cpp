@@ -893,6 +893,11 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 
 		GPU3DS.activeSide = GFX_LEFT;
 	}
+
+	// Leave the left eye's screen in the texture table, so anything that reads
+	// the last frame afterwards -- the pause menu, a screenshot -- gets the eye
+	// it expects rather than whichever one happened to be drawn last.
+	gpu3dsSelectSnesScreenEye(GFX_LEFT);
 }
 
 //---------------------------------------------------------
