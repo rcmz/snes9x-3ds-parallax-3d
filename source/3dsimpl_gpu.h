@@ -222,7 +222,8 @@ typedef struct
     // which copy currently sits in GPU3DS.textures[SNES_MAIN]
     gfx3dSide_t     screenSide;
 
-    // the draw lists are built once per frame and replayed for the second eye
+    // the draw lists and index buffer are built once per frame and replayed
+    // for the second eye
     bool            listsBuilt;
 } SStereoLayerState;
 

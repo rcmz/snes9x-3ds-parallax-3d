@@ -258,7 +258,7 @@ void gpu3dsDrawTiledLayerSingleSection(SLayer *layer, SLayerSection *section) {
 }
 
 // obj, bg0-bg3
-void gpu3dsDrawTiledLayer(SLayer *layer, u16 *indices, int from, int to) {
+void gpu3dsDrawTiledLayer(SLayer *layer, u16 *indices, int from, int to, bool buildIndices) {
     SLayerList *list = &GPU3DSExt.layerList;
     u16 batchFrom = 0;
     u16 batchCount = 0;
@@ -298,17 +298,19 @@ void gpu3dsDrawTiledLayer(SLayer *layer, u16 *indices, int from, int to) {
             }
         }
 
-        // build sequential indices
-        u16 *dst = indices + batchFrom + batchCount;
-        int i = 0;
-        for (; i <= sCount - 4; i += 4) {
-            dst[i]     = sFrom + i;
-            dst[i + 1] = sFrom + i + 1;
-            dst[i + 2] = sFrom + i + 2;
-            dst[i + 3] = sFrom + i + 3;
-        }
-        for (; i < sCount; i++) {
-            dst[i] = sFrom + i;
+        // build sequential indices (the second eye replays the same buffer)
+        if (buildIndices) {
+            u16 *dst = indices + batchFrom + batchCount;
+            int i = 0;
+            for (; i <= sCount - 4; i += 4) {
+                dst[i]     = sFrom + i;
+                dst[i + 1] = sFrom + i + 1;
+                dst[i + 2] = sFrom + i + 2;
+                dst[i + 3] = sFrom + i + 3;
+            }
+            for (; i < sCount; i++) {
+                dst[i] = sFrom + i;
+            }
         }
 
         batchCount += sCount;
@@ -318,7 +320,7 @@ void gpu3dsDrawTiledLayer(SLayer *layer, u16 *indices, int from, int to) {
     gpu3dsDraw(&GPU3DS.vertices[vboId], (void *)(indices + batchFrom), batchCount);
 }
 
-void gpu3dsDrawLayers(SLayerList *list) {
+void gpu3dsDrawLayers(SLayerList *list, bool buildIndices) {
     const SStereoLayerState *stereo = &GPU3DSExt.stereo;
 
     // Window masks live in screen space and are shared by every layer, so they
@@ -361,7 +363,7 @@ void gpu3dsDrawLayers(SLayerList *list) {
                 else {
                     u32 bufferOffset = layer->bufferOffset + (sub ? 0 : layer->verticesByTarget[TARGET_SNES_SUB]);
                     u16 *indices = (u16 *)list->ibo + bufferOffset;
-                    gpu3dsDrawTiledLayer(layer, indices, from, to);
+                    gpu3dsDrawTiledLayer(layer, indices, from, to, buildIndices);
                 }
             }
             else {
@@ -540,21 +542,17 @@ void gpu3dsDrawSnesScreen() {
     if (!list->verticesTotal || list->hasSkippedSections)
         return;
 
-    if (!GPU3DSExt.stereo.listsBuilt) {
+    bool firstPass = !GPU3DSExt.stereo.listsBuilt;
+
+    if (firstPass) {
         gpu3dsBuildSnesLayerDrawLists(list);
         GPU3DSExt.stereo.listsBuilt = true;
     }
 
     gpu3dsDrawMode7Texture();
-    gpu3dsDrawLayers(list);
+    gpu3dsDrawLayers(list, firstPass);
 }
 
-//---------------------------------------------------------
-// Draws the whole SNES frame for one eye into that eye's screen
-// texture. The vertex data is built once per frame during
-// emulation and replayed here, with each layer shifted
-// horizontally by its stereo parallax.
-//---------------------------------------------------------
 //---------------------------------------------------------
 // Puts the given eye's copy of the SNES screen into the texture
 // table, so every later render-state change addresses it as
@@ -580,6 +578,12 @@ void gpu3dsSelectSnesScreenEye(gfx3dSide_t side) {
     GPU3DS.appliedRenderState.textureBind = TEX_UNSET;
 }
 
+//---------------------------------------------------------
+// Draws the whole SNES frame for one eye into that eye's screen
+// texture. The vertex data is built once per frame during
+// emulation and replayed here, with each layer shifted
+// horizontally by its stereo parallax.
+//---------------------------------------------------------
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side) {
     GPU3DSExt.stereo.eye = GPU3DSExt.stereo.active ? (side == GFX_RIGHT ? 1 : -1) : 0;
 
