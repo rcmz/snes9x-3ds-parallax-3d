@@ -69,6 +69,23 @@ the interface on priority 1, the rain on priority 0. One depth per plane forces
 them together; one depth per slot lets the interface float in front while the
 rain sits back in the scene.
 
+### When two priorities can be split, and when they cannot
+
+A background stores one tile per cell, so its two priorities are not two
+pictures: they are one grid whose cells each belong to one or the other. Giving
+them different depths slides those cells apart, and nothing exists behind the
+gap, so any surface the two priorities tile together tears into holes.
+
+Split a background's priorities only when one of them is a **sparse overlay** --
+tiles that sit over the scene rather than forming part of it. Super Metroid's
+BG3 is the clean case: the interface and the rain are both drawn over
+everything else and neither closes a surface, so they separate cleanly. Its BG1
+is the opposite case: the distant pillars and the near terrain are on the same
+background at different priorities, but they tile edge to edge, so pulling them
+apart opens tile-shaped holes.
+
+When in doubt, give a background's two priorities the same depth.
+
 ### Using the sliders
 
 * `0` places that slot at the screen, where a flat picture sits.
@@ -80,9 +97,9 @@ distant scenery, which one carries the playfield and which one is the HUD. A
 good starting point is to leave the playfield at `0`, give the slots that scroll
 more slowly a positive depth, and put the interface slightly negative.
 
-Super Metroid, for example, works well at BG1 prio 0 `0`, BG2 prio 0 `8`,
-BG3 prio 0 `10` for the rain, BG3 prio 1 `-4` for the interface, and sprites
-`-1`.
+Super Metroid, for example, works well at both BG1 priorities `0`, BG2 prio 0
+`8`, BG3 prio 0 `10` for the rain, BG3 prio 1 `-4` for the interface, and
+sprites `-1`.
 
 Pause the game while adjusting: the top screen keeps showing the paused frame
 and redraws it as you move the sliders, so the effect can be judged directly.

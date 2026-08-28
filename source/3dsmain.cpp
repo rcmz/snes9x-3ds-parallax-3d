@@ -843,9 +843,14 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
 
     AddMenuDisabledOption(items, ""_s);
     items.emplace_back(nullptr, MenuItemType::Textarea, "  0 = at the screen, higher = further back."_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  The backdrop is always furthest back; it fills the"_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  screen, so it has no depth of its own."_s, ""_s);
     items.emplace_back(nullptr, MenuItemType::Textarea, "  Pause in-game to preview while adjusting."_s, ""_s);
+    AddMenuDisabledOption(items, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  A background holds one tile per cell, so splitting its"_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  two priorities tears any surface they tile together:"_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  give them different depths only when one of them is a"_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  sparse overlay, such as an interface or rain."_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  The backdrop fills the screen and is always furthest"_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  back, so it has no depth of its own."_s, ""_s);
     AddMenuDisabledOption(items, ""_s);
 }
 
