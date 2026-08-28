@@ -132,11 +132,12 @@ Notes:
   compositing rules (priorities, windows, colour math) stay exactly as they are
   in 2D. The SNES itself is emulated once per frame; what is repeated per eye is
   replaying the frame's vertices, and only while the 3D slider is open.
-* A slot can only be shifted as far as the game's own tilemap reaches. Where a
-  game leaves no valid tile data just outside the visible screen, a slot given
-  depth can uncover a thin strip at one edge showing what is behind it. Giving
-  the slots the camera follows a depth of `0` avoids this, since those are the
-  ones whose off-screen data is least likely to be there.
+* A slot with depth pulls content in from outside the visible screen, and a game
+  only keeps its tilemap valid where it means to draw. Rather than show whatever
+  it has already reused for somewhere else, each eye leaves that strip undrawn --
+  the right eye at its left edge, the left eye at its right, which is what a
+  stereo window does. The strip is as wide as the largest shift in force, so
+  smaller depths cost fewer pixels.
 
 ## Setup
 
