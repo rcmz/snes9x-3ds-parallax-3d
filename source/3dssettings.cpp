@@ -76,6 +76,7 @@ void settings3dsResetGameDefaults() {
     settings3DS.Mode7BilinearFilter = false;
 
     settings3DS.Depth3DEnabled = false;
+    settings3DS.Depth3DEdges = Setting::Depth3DEdges::Layer;
     memset(settings3DS.Depth3D, 0, sizeof(settings3DS.Depth3D));
 
     memset(settings3DS.LayerEnabled, true, sizeof(settings3DS.LayerEnabled));

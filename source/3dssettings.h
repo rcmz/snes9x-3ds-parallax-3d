@@ -171,6 +171,14 @@ namespace Setting {
         High,
     };
 
+    // What to do with the strip a slot with stereo depth leaves at one screen
+    // edge when its shift moves it away from that edge.
+    enum class Depth3DEdges {
+        Layer,      // cut each slot back to the screen, so its strip is its own shift wide
+        Frame,      // one strip per eye instead, as wide as the largest shift in the frame
+        None,       // neither: the tiles a game leaves just off-screen come into view
+    };
+
     enum class EnhancedResolution {
         Off,         // native 256px render
         Standard,    // 512px internal render (keeps 3D)
@@ -274,6 +282,8 @@ typedef struct {
 
     bool                Depth3DEnabled;         // Per-layer stereoscopic depth: give each SNES plane
                                                 // its own depth instead of a flat game screen.
+
+    Setting::Depth3DEdges Depth3DEdges;     // What the screen edges do with a shifted slot's strip.
 
     s8                  Depth3D[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT];
                                                 // Depth of each plane-and-priority slot, per

@@ -27,16 +27,18 @@ This core is based on **snes9x 1.43**, which uses the older, less accurate SNES 
 
 ## Per-layer 3D depth
 
-A slot given a depth slides sideways between the two eyes, and its geometry
-covers the visible screen and no more -- a game only keeps its tilemap valid
-where it means to draw, so nothing outside it is read. A shifted slot therefore
-runs out at one edge of one eye, over a strip no wider than its own shift, and
-whatever sits behind it shows through there. Slots left at 0 keep their full
-width, so the cost falls on the slot that was moved rather than on the picture.
-The strip is exactly as wide as the shift and straight down the frame: tile
-geometry is cut back to the screen before it is shifted, so neither the tile
-column that hangs over the edge nor a sprite the game parked just outside can be
-carried into view.
+A slot given a depth slides sideways between the two eyes, so it stops short of
+one edge of one eye. What happens there is the **Screen edges** setting, and
+none of its three answers is free.
+
+By default each slot's geometry is cut back to the visible screen before the
+shift moves it, so the slot runs out over a strip exactly as wide as its own
+shift and whatever sits behind it shows through. Slots left at 0 keep their full
+width. **Whole frame** leaves one strip per eye undrawn instead, as wide as the
+largest shift the frame used, which costs a few pixels from every slot. **None**
+draws the tiles a game keeps just outside the screen, which are valid only where
+it meant to draw them, and whose overhang follows that layer's scroll -- so that
+strip can step in and out down the frame.
 
 Mode 7 encodes depth as a single bit rather than one of the interleaved slots,
 so its planes take no depth at all.

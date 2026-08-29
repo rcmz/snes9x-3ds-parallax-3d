@@ -157,6 +157,33 @@ Both the greying and the previews come from the frame the game stopped on. A gam
 that changes mode between rooms, or part-way down a frame, will look different
 the next time the menu is opened.
 
+### Screen edges
+
+A slot with depth moves sideways between the eyes, so it stops short of one edge
+of one eye and something has to give there. **Screen edges** decides what.
+
+* **Per layer** (the default) cuts each slot's geometry back to the visible
+  screen before the shift moves it. The slot then runs out at one edge over a
+  strip exactly as wide as its own shift, straight down the frame, and whatever
+  sits behind it shows through there. A slot left at `0` keeps the full width
+  whatever its neighbours are set to.
+* **Whole frame** leaves one strip undrawn per eye instead -- the right eye at
+  its left edge, the left eye at its right -- as wide as the largest shift the
+  frame used. Nothing shows through it at all, at the cost of a few pixels from
+  every slot, including the ones that never moved. The width is taken over the
+  slots the frame actually drew, so a large depth sitting in the arrangement the
+  game is not currently in does not trim the picture.
+* **None** draws the tiles anyway. A game keeps its tilemap valid only where it
+  means to draw, so what appears is whatever it last left there: real scenery in
+  a game whose map wraps, unrelated tiles in one that reuses the space. How far
+  a tile hangs over an edge follows that layer's scroll, which HDMA can change
+  from one band of the frame to the next, so the strip can step in and out down
+  the screen.
+
+Cutting the tiles back happens while the frame is drawn, so changing to or from
+**None** shows on the next frame the game draws rather than on the paused one.
+**Whole frame** applies to the paused frame immediately.
+
 ### Using the sliders
 
 * `0` places that slot at the screen, where a flat picture sits.
@@ -193,12 +220,7 @@ Notes:
   compositing rules (priorities, windows, colour math) stay exactly as they are
   in 2D. The SNES itself is emulated once per frame; what is repeated per eye is
   replaying the frame's vertices, and only while the 3D slider is open.
-* Each slot is drawn where the game drew it and nowhere else: its geometry is
-  cut back to the visible screen before the shift moves it, so nothing the game
-  left outside the screen can be carried into view. A slot with depth therefore
-  runs out at one edge of one eye, over a strip exactly as wide as its own shift
-  and straight down the frame, and whatever sits behind it shows through there.
-  A slot left at `0` keeps the full width whatever its neighbours are set to.
+* What happens at the screen edges is a setting of its own -- see below.
 
 ## Setup
 

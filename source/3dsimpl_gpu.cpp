@@ -662,6 +662,8 @@ void gpu3dsUpdateStereoLayerShifts() {
     memset(stereo->depthSlotSource, -1, sizeof(stereo->depthSlotSource));
     stereo->active = false;
     stereo->eye = 0;
+    stereo->clipTiles = false;
+    stereo->windowEdges = false;
 
     // The sprite slots are recorded per band along with the backgrounds, since
     // which arrangement's depths apply depends on the mode that band is in.
@@ -698,6 +700,8 @@ void gpu3dsUpdateStereoLayerShifts() {
         return;
 
     stereo->active = true;
+    stereo->clipTiles = settings3DS.Depth3DEdges != Setting::Depth3DEdges::None;
+    stereo->windowEdges = settings3DS.Depth3DEdges == Setting::Depth3DEdges::Frame;
 }
 
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub, bool reuseVertices) {

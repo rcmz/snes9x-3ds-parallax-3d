@@ -229,6 +229,14 @@ typedef struct
     // true when at least one layer has a non-zero shift this frame
     bool            active;
 
+    // How the screen edges are handled, resolved from settings3DS.Depth3DEdges
+    // once a frame so the hot paths do not read the setting themselves.
+    // clipTiles cuts every tile back to the screen before the shift moves it;
+    // windowEdges leaves one strip undrawn per eye instead. Neither is set when
+    // the tiles a game keeps just off-screen are wanted as they are.
+    bool            clipTiles;
+    bool            windowEdges;
+
     // While >= 0, only the tiles belonging to that configurable slot are drawn:
     // every other slot is pushed off the side of the screen. Used to render the
     // menu's preview of what a slot holds, one slot at a time.
@@ -277,6 +285,52 @@ void gpu3dsUpdateStereoLayerShifts();
 // per-slot previews. -1 restores the normal frame.
 void gpu3dsSetDepthSlotIsolation(int slot);
 void gpu3dsUpdateStereoLayerShiftsForPreview();
+
+//---------------------------------------------------------
+// Width, in SNES pixels, of the strip an eye leaves undrawn at
+// each screen edge, for the whole-frame edge mode.
+//
+// One strip stands for every slot, so it has to cover the
+// largest shift in either direction -- but only over the slots
+// this frame actually drew. Depths are kept per composite
+// arrangement, and a depth belonging to the arrangement the game
+// is not in would otherwise trim a frame it has no part in. A
+// frame that changes mode part-way down draws slots from both,
+// and is bounded over exactly those.
+//---------------------------------------------------------
+static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *right)
+{
+    const SStereoLayerState *stereo = &GPU3DSExt.stereo;
+
+    *left = 0;
+    *right = 0;
+
+    if (!stereo->windowEdges)
+        return;
+
+    int shiftMax = 0;
+    int shiftMin = 0;
+
+    for (int i = 0; i < SNES_DEPTH_SLOTS; i++) {
+        int source = stereo->depthSlotSource[i];
+
+        if (source < 0)
+            continue;
+
+        int shift = stereo->slotShift[source / DEPTH3D_SLOT_COUNT][source % DEPTH3D_SLOT_COUNT];
+
+        if (shift > shiftMax) shiftMax = shift;
+        if (shift < shiftMin) shiftMin = shift;
+    }
+
+    int eye = side == GFX_RIGHT ? 1 : -1;
+
+    int pulledFromLeft = eye > 0 ? shiftMax : -shiftMin;
+    int pulledFromRight = eye > 0 ? -shiftMin : shiftMax;
+
+    *left = pulledFromLeft > 0 ? pulledFromLeft : 0;
+    *right = pulledFromRight > 0 ? pulledFromRight : 0;
+}
 
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
 
@@ -518,7 +572,7 @@ inline void __attribute__((always_inline)) gpu3dsAddTileVertexes(
     s16 tx0, s16 ty0, s16 tx1, s16 ty1,
     s16 z)
 {
-    if (GPU3DSExt.stereo.active && !gpu3dsClipTileToScreen(x0, x1, tx0, tx1))
+    if (GPU3DSExt.stereo.clipTiles && !gpu3dsClipTileToScreen(x0, x1, tx0, tx1))
         return;
 
     SVertexList *list = &GPU3DS.vertices[VBO_SCENE_TILE];

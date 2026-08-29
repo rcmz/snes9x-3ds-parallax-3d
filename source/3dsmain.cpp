@@ -860,6 +860,23 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         return;
     }
 
+    // What a slot's shift leaves behind at the screen edge. Cutting the tiles
+    // back is decided while the frame is drawn, so a change to or from "None"
+    // shows on the next frame the game draws rather than on the paused one.
+    AddMenuPicker(items, "  Screen edges"_s,
+        // Three lines is what the dialog has room for, and each has to fit a
+        // line on its own or it wraps and pushes the rest off the bottom.
+        "Per layer: a slot stops at the screen edge.\n"
+        "Whole frame: one strip per eye, widest shift.\n"
+        "None: shows tiles kept just off-screen."_s,
+        makePickerOptions({"Per layer", "Whole frame", "None"}),
+        static_cast<int>(settings3DS.Depth3DEdges), DIALOG_TYPE_INFO, true,
+        []( int val ) {
+            if (CheckAndUpdate(settings3DS.Depth3DEdges, static_cast<Setting::Depth3DEdges>(val))) {
+                menu3dsSetScreenDirty();
+            }
+        });
+
     // The two arrangements stack their planes differently, so each keeps its
     // own sliders and the list is one or the other. The one the game is in is
     // marked, and is what the menu opens on.
@@ -1455,6 +1472,10 @@ bool settingsReadWriteFullListByGame(bool writeMode)
                     &settings3DS.Depth3D[family][slot], -DEPTH3D_MAX, DEPTH3D_MAX);
             }
         }
+    }
+
+    if (writeMode || detectedConfigVersion >= 2.0f) {
+        config3dsReadWriteEnum(stream, writeMode, "Depth3DEdges=%d\n", &settings3DS.Depth3DEdges, 0, 2);
     }
 
     config3dsReadWriteInt32(stream, writeMode, "Frameskips=%d\n", &settings3DS.MaxFrameSkips, 0, 4);

@@ -712,10 +712,26 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, bool pausedOverl
 		img3dsDrawBackground(UI_BG_GAME, paused, xOffset);
 	}
 
+	// In the whole-frame edge mode one strip per eye stands in for every slot's,
+	// so the picture is cut back rather than the geometry.
+	GameScreenViewport eyeViewport = gameScreenViewport;
+
+	if (GPU3DSExt.stereo.windowEdges && !screenshot.dirty) {
+		int maskLeft, maskRight;
+		gpu3dsGetStereoEdgeMask(GPU3DS.activeSide, &maskLeft, &maskRight);
+
+		float pixelsPerTexel = (float)(eyeViewport.sx1 - eyeViewport.sx0) / (eyeViewport.tx1 - eyeViewport.tx0);
+
+		eyeViewport.tx0 += maskLeft;
+		eyeViewport.tx1 -= maskRight;
+		eyeViewport.sx0 += (int)(maskLeft * pixelsPerTexel + 0.5f);
+		eyeViewport.sx1 -= (int)(maskRight * pixelsPerTexel + 0.5f);
+	}
+
 	gpu3dsAddSimpleQuadVertexes(
-		gameScreenViewport.sx0, gameScreenViewport.sy0, gameScreenViewport.sx1, gameScreenViewport.sy1,
-		gameScreenViewport.tx0, gameScreenViewport.ty0,
-		gameScreenViewport.tx1, gameScreenViewport.ty1, 0);
+		eyeViewport.sx0, eyeViewport.sy0, eyeViewport.sx1, eyeViewport.sy1,
+		eyeViewport.tx0, eyeViewport.ty0,
+		eyeViewport.tx1, eyeViewport.ty1, 0);
 
 	// Sample this eye's own copy of the SNES screen.
 	SGPU_TEXTURE_ID snesScreen = GPU3DSExt.stereo.active
@@ -729,8 +745,8 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, bool pausedOverl
 
 	if (balancedFilterEnabled) {
 		gpu3dsAddSimpleQuadVertexes(
-			gameScreenViewport.sx0, gameScreenViewport.sy0, gameScreenViewport.sx1, gameScreenViewport.sy1,
-			gameScreenViewport.tx0, gameScreenViewport.ty0, gameScreenViewport.tx1, gameScreenViewport.ty1, 0, 0xFFFFFF88);
+			eyeViewport.sx0, eyeViewport.sy0, eyeViewport.sx1, eyeViewport.sy1,
+			eyeViewport.tx0, eyeViewport.ty0, eyeViewport.tx1, eyeViewport.ty1, 0, 0xFFFFFF88);
 
 		// Temporarily switch to linear sampling for the blend pass.
 		C3D_TexSetFilter(&GPU3DS.textures[snesScreen].tex, GPU_LINEAR, GPU_LINEAR);
