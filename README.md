@@ -115,8 +115,8 @@ sprite priority 2 there where in Mode 1 it sits in front. A slot's place in the
 frame, and so the depth that suits it, belongs to one arrangement or the other.
 
 Each therefore keeps its own set of depths, and **Sliders for** chooses which
-set the list is showing. The arrangement the game is currently in is marked
-*(in use)*, and the menu opens on it. The other one stays reachable, so a game
+set the list is showing. It names the mode the game is in, the arrangement that
+mode belongs to is marked *(current)*, and the menu opens on it. The other one stays reachable, so a game
 that plays in Mode 1 and draws its map in Mode 3 can have both set up without
 having to be in the right screen at the time.
 
@@ -147,9 +147,9 @@ are on screen at once and the rest are a scroll away.
 
 Previews are of the frame behind the menu, and that frame was drawn in one
 arrangement. The other arrangement's sliders keep their rows and their frames but
-come out black: those planes are not what is on screen, and showing the current
-frame's content next to them would say something untrue about the depths being
-set. The two sets are independent -- the sliders shown are always the ones being
+come out black, whether the list opened on them or was switched to them: those
+planes are not what is on screen, and showing the current frame's content next
+to them would say something untrue about the depths being set. The two sets are independent -- the sliders shown are always the ones being
 changed.
 
 Both the greying and the previews come from the frame the game stopped on. A game

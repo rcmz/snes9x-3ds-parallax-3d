@@ -94,10 +94,11 @@ void menu3dsDrawSlotPreview(int slot, int x, int y)
 
     ui3dsDrawRect(x - 1, y, x + DEPTH3D_PREVIEW_WIDTH + 1, y + DEPTH3D_PREVIEW_HEIGHT + 2, border);
 
-    // Nothing captured means the sliders on screen are the other
-    // arrangement's, which the frame behind the menu was not drawn by. The
-    // frame stays, at its full size, so the list keeps its shape.
-    if (!slotPreviewsCaptured) {
+    // Blank whenever the sliders on screen are the other arrangement's: the
+    // frame behind the menu was not drawn by it, so there is nothing of its
+    // planes to show. The frame stays, at its full size, so the list keeps its
+    // shape either way.
+    if (!slotPreviewsCaptured || !menu3dsDepth3DPreviewsApply()) {
         ui3dsDrawRect(x, y + 1, x + DEPTH3D_PREVIEW_WIDTH, y + DEPTH3D_PREVIEW_HEIGHT + 1, 0);
         return;
     }
@@ -379,11 +380,13 @@ void menu3dsDrawItems(
 
         else if (currentTab->MenuItems[i].Type == MenuItemType::Gauge)
         {
-            // An inactive row keeps the disabled colour even under the cursor:
-            // the highlight already says what is selected, and losing the
-            // colour there would hide whether the slot is in use.
+            // An inactive row keeps its own colour even under the cursor: the
+            // highlight already says what is selected, and losing the colour
+            // there would hide whether the slot is in use. Darker than the
+            // ordinary disabled colour, which sits close enough to the live
+            // text to be missed in a list of near-identical rows.
             color = currentTab->MenuItems[i].Dimmed
-                ? disabledItemTextColor
+                ? (disabledItemTextColor >> 1) & 0x7F7F7F
                 : (currentTab->SelectedItemIndex == i ? selectedItemTextColor : normalItemTextColor);
 
             if (currentTab->MenuItems[i].Text.find('\t') != std::string::npos)
