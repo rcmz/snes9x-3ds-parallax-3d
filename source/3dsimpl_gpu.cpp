@@ -351,7 +351,9 @@ void gpu3dsDrawLayers(SLayerList *list, bool buildIndices) {
             // They are drawn as plain rectangles carrying no slot, so they
             // cannot be held back the way the tiles can, and the backdrop alone
             // would cover every preview.
-            if (GPU3DSExt.stereo.isolateSlot >= 0 && id >= LAYER_BACKDROP)
+            bool backdropOnly = GPU3DSExt.stereo.isolateSlot == DEPTH3D_SLOT_COUNT;
+
+            if (GPU3DSExt.stereo.isolateSlot >= 0 && (id >= LAYER_BACKDROP) != backdropOnly)
                 continue;
 
             GPU3DS.currentRenderState.depthTest = id < LAYER_OBJ ? SGPU_STATE_ENABLED : SGPU_STATE_DISABLED;
@@ -599,9 +601,16 @@ static void gpu3dsUploadDepthSlotOffsets() {
         if (stereo->isolateSlot >= 0) {
             // Everything but the slot being previewed is pushed clear of the
             // render target, which leaves the one slot alone on the screen.
-            shift = source == stereo->isolateSlot ? 0.0f : (float)DEPTH3D_ISOLATE_SHIFT;
+            // The slot is matched whichever arrangement drew it, so a preview
+            // shows what is on it now rather than only in one of the two.
+            bool isolated = source >= 0
+                && (source % DEPTH3D_SLOT_COUNT) == stereo->isolateSlot;
+
+            shift = isolated ? 0.0f : (float)DEPTH3D_ISOLATE_SHIFT;
         } else {
-            shift = source >= 0 ? (float)(stereo->eye * stereo->slotShift[source]) : 0.0f;
+            shift = source >= 0
+                ? (float)(stereo->eye * stereo->slotShift[source / DEPTH3D_SLOT_COUNT][source % DEPTH3D_SLOT_COUNT])
+                : 0.0f;
         }
 
         C3D_FVUnifSet(GPU_VERTEX_SHADER, loc + slot, shift, 0.0f, 0.0f, 0.0f);
@@ -638,7 +647,10 @@ void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side) {
 // frame so both eyes use the same values.
 //---------------------------------------------------------
 void gpu3dsSetDepthSlotIsolation(int slot) {
-    GPU3DSExt.stereo.isolateSlot = (s8)(slot >= 0 && slot < DEPTH3D_SLOT_COUNT ? slot : -1);
+    // DEPTH3D_SLOT_COUNT itself asks for the backdrop on its own: it carries no
+    // slot to isolate by, so every slot is held back and the layer filter lets
+    // it through instead.
+    GPU3DSExt.stereo.isolateSlot = (s8)(slot >= 0 && slot <= DEPTH3D_SLOT_COUNT ? slot : -1);
 }
 
 void gpu3dsUpdateStereoLayerShifts() {
@@ -653,11 +665,8 @@ void gpu3dsUpdateStereoLayerShifts() {
     stereo->shiftMax = 0;
     stereo->shiftMin = 0;
 
-    // Sprites always occupy the same depth slots, whatever the background mode,
-    // and the mapping is recorded even when no depth is in force so the menu's
-    // slot previews have it.
-    for (int priority = 0; priority < 4; priority++)
-        stereo->depthSlotSource[(priority + 1) * 3] = (s8)DEPTH3D_OBJ_SLOT(priority);
+    // The sprite slots are recorded per band along with the backgrounds, since
+    // which arrangement's depths apply depends on the mode that band is in.
 
     // The 512px render path already uses the full width of the render
     // target, leaving no room for the off-screen margin the shifted
@@ -670,16 +679,18 @@ void gpu3dsUpdateStereoLayerShifts() {
     if (strength <= 0.0f)
         return;
 
-    for (int i = 0; i < DEPTH3D_SLOT_COUNT; i++) {
-        int shift = (int)lroundf(settings3DS.Depth3D[i] * strength);
+    for (int family = 0; family < DEPTH3D_FAMILY_COUNT; family++) {
+        for (int i = 0; i < DEPTH3D_SLOT_COUNT; i++) {
+            int shift = (int)lroundf(settings3DS.Depth3D[family][i] * strength);
 
-        if (shift < -DEPTH3D_SHIFT_MAX) shift = -DEPTH3D_SHIFT_MAX;
-        if (shift > DEPTH3D_SHIFT_MAX) shift = DEPTH3D_SHIFT_MAX;
+            if (shift < -DEPTH3D_SHIFT_MAX) shift = -DEPTH3D_SHIFT_MAX;
+            if (shift > DEPTH3D_SHIFT_MAX) shift = DEPTH3D_SHIFT_MAX;
 
-        stereo->slotShift[i] = (s8)shift;
+            stereo->slotShift[family][i] = (s8)shift;
 
-        if (shift > stereo->shiftMax) stereo->shiftMax = (s8)shift;
-        if (shift < stereo->shiftMin) stereo->shiftMin = (s8)shift;
+            if (shift > stereo->shiftMax) stereo->shiftMax = (s8)shift;
+            if (shift < stereo->shiftMin) stereo->shiftMin = (s8)shift;
+        }
     }
 
     if (!stereo->shiftMax && !stereo->shiftMin)

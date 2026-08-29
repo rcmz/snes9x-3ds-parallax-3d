@@ -185,6 +185,7 @@ void menu3dsDrawEverything(int& currentMenuTab, std::vector<SMenuTab>& menuTabs)
 // Previews of what each depth slot holds in the paused frame, shown beside the
 // sliders in the 3D depth tab.
 void menu3dsInvalidateSlotPreviews();
+void menu3dsResetDepth3DFamily();
 void menu3dsDrawSlotPreview(int slot, int x, int y);
 void menu3dsSwapBuffersAndWaitForVBlank();
 

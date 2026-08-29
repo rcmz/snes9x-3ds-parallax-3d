@@ -106,20 +106,32 @@ The fill covers the ordinary background path. Offset-per-tile backgrounds
 (Modes 2 and 4), mosaic and the hi-res Mode 5/6 path do not have it yet, so
 splitting priorities there can still tear.
 
-### Reading the list
+### Two arrangements, two sets of sliders
 
-The sliders are listed front-most first, in the stack Modes 0 and 1 composite,
-which is the fullest arrangement the hardware has. The order is fixed: a row
-never moves. Modes 2 to 7 keep those backgrounds in the same relative order but
-interleave the sprites between them differently, so in those modes the list is a
-stable arrangement to aim at rather than that mode's exact composite order.
+Appendix A-19 gives the SNES two composite orders, not one. Modes 0 and 1 stack
+up to four backgrounds with the sprites between them; Modes 2 to 7 stack two and
+interleave the sprites differently, so that BG2's high priority sits *behind*
+sprite priority 2 there where in Mode 1 it sits in front. A slot's place in the
+frame, and so the depth that suits it, belongs to one arrangement or the other.
 
-The slots the current mode does not draw grey out in place -- they do not move
-and they do not disappear, and they stay adjustable, because a game is free to
-change mode while the menu is closed. Only Mode 0 has four backgrounds; Mode 1
-has three, Modes 2 to 5 have BG1 and BG2, Mode 6 has BG1 alone, and Mode 7
-leaves every background to the sprites. The mode itself is named on the
-**Per-Layer 3D Depth** row.
+Each therefore keeps its own set of depths, and **Sliders for** chooses which
+set the list is showing. The arrangement the game is currently in is marked
+*(in use)*, and the menu opens on it. The other one stays reachable, so a game
+that plays in Mode 1 and draws its map in Mode 3 can have both set up without
+having to be in the right screen at the time.
+
+Within an arrangement the order is the hardware's and never changes. The slots
+the current mode does not draw grey out in place -- they do not move and they do
+not disappear, and they stay adjustable, because a game is free to change mode
+while the menu is closed. Only Mode 0 has four backgrounds; Mode 1 has three,
+Modes 2 to 5 have BG1 and BG2, Mode 6 has BG1 alone, and Mode 7 leaves every
+background to the sprites. The mode itself is named on the **Per-Layer 3D
+Depth** row.
+
+The list ends with the **Backdrop**, which takes no slider: it is one colour
+filling the screen and always furthest back, so a depth for it would mean
+nothing. It is there because the stack reads better closed, and because its
+preview shows what the rest of the frame is built on.
 
 Beside each slider is a preview of what that slot alone holds in the frame behind
 the menu, rendered by drawing the frame again with the other slots held back. An
@@ -130,8 +142,13 @@ something sparse -- rain, a HUD, a few sprites -- still shows at this size
 instead of averaging away to black. A layer therefore previews brighter than it
 really is.
 
-The rows are twice the usual height to fit those previews, so about six of the
-thirteen sliders are on screen at once and the rest are a scroll away.
+The rows are twice the usual height to fit those previews, so about six sliders
+are on screen at once and the rest are a scroll away.
+
+Previews are of the frame as it was drawn, which is in whichever arrangement the
+game was using. Looking at the other arrangement's sliders therefore shows what
+those planes and priorities hold *now*, not what they will hold once that
+arrangement runs.
 
 Both the greying and the previews come from the frame the game stopped on. A game
 that changes mode between rooms, or part-way down a frame, will look different

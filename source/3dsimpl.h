@@ -189,11 +189,16 @@ void impl3dsSceneRender(bool firstFrame, bool paused = false, bool pausedOverlay
 #define DEPTH3D_PREVIEW_WIDTH   24
 #define DEPTH3D_PREVIEW_HEIGHT  20
 
+// The backdrop has no depth of its own -- it fills the screen and is always
+// furthest back -- but it previews like the slots do, as the last tile, so the
+// list shows what the frame is built on.
+#define DEPTH3D_PREVIEW_BACKDROP    DEPTH3D_SLOT_COUNT
+#define DEPTH3D_PREVIEW_COUNT       (DEPTH3D_SLOT_COUNT + 1)
+
 // Renders the paused frame once per depth slot with every other slot held back,
-// and averages each one down into tiles[], which must hold
-// DEPTH3D_SLOT_COUNT * DEPTH3D_PREVIEW_WIDTH * DEPTH3D_PREVIEW_HEIGHT pixels in
-// RGB565. Leaves the game screen holding the grid it drew, so the caller has to
-// redraw it.
+// and reduces each one into tiles[], which must hold DEPTH3D_PREVIEW_COUNT *
+// DEPTH3D_PREVIEW_WIDTH * DEPTH3D_PREVIEW_HEIGHT pixels in RGB565. Leaves the
+// game screen holding the last pass, so the caller has to redraw it.
 bool impl3dsCaptureDepthSlotPreviews(u16 *tiles);
 
 #endif

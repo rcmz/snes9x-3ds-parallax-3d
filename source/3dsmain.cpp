@@ -792,6 +792,15 @@ static const char *depth3dSlotName(int slot) {
     return names[slot];
 }
 
+// Which arrangement's sliders the tab is showing. Set to the one the game is in
+// whenever the menu opens, so the list starts on the sliders that are doing
+// something, and left to the picker after that.
+static int depth3dShownFamily = DEPTH3D_FAMILY_MODE01;
+
+void menu3dsResetDepth3DFamily() {
+    depth3dShownFamily = DEPTH3D_FAMILY_OF(PPU.BGMode);
+}
+
 void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     items.clear();
 
@@ -823,6 +832,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     // mode of the last thing it drew rather than a property of the game.
     int bgMode = PPU.BGMode;
     bool bg3Priority = PPU.BG3Priority;
+    int currentFamily = DEPTH3D_FAMILY_OF(bgMode);
 
     char modeText[32];
     snprintf(modeText, sizeof(modeText), "Mode %d", bgMode);
@@ -846,23 +856,48 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         return;
     }
 
-    const u8 *order = depth3dSlotOrder();
+    // The two arrangements stack their planes differently, so each keeps its
+    // own sliders and the list is one or the other. The one the game is in is
+    // marked, and is what the menu opens on.
+    std::vector<std::string> familyNames = {
+        currentFamily == DEPTH3D_FAMILY_MODE01 ? "Modes 0-1  (in use)" : "Modes 0-1",
+        currentFamily == DEPTH3D_FAMILY_MODE27 ? "Modes 2-7  (in use)" : "Modes 2-7",
+    };
 
-    for (int i = 0; i < DEPTH3D_SLOT_COUNT; i++) {
+    AddMenuPicker(items, "  Sliders for"_s,
+        "Each arrangement of the SNES' planes keeps its own depths, because the planes stack differently in each.\nThe one in use is marked."_s,
+        makePickerOptions(familyNames), depth3dShownFamily, DIALOG_TYPE_INFO, true,
+        []( int val ) {
+            if (CheckAndUpdate(depth3dShownFamily, val))
+                menu3dsMarkTabDirty(TAB_DEPTH3D);
+        });
+
+    int family = depth3dShownFamily;
+    int slotCount = 0;
+    const u8 *order = depth3dFamilySlots(family, &slotCount);
+
+    for (int i = 0; i < slotCount; i++) {
         int slot = order[i];
 
-        AddMenuGauge(items, depth3dSlotName(slot), -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[slot],
-            [slot]( int val ) {
-                if (CheckAndUpdate(settings3DS.Depth3D[slot], (s8)val))
+        AddMenuGauge(items, depth3dSlotName(slot), -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[family][slot],
+            [family, slot]( int val ) {
+                if (CheckAndUpdate(settings3DS.Depth3D[family][slot], (s8)val))
                     menu3dsSetScreenDirty();
             }, true);
 
-        // Every slot keeps its place in the list whatever the mode is doing.
-        // The ones this mode does not composite go quiet rather than moving or
-        // disappearing, and stay adjustable: the mode can change at any time.
-        items.back().Dimmed = depth3dSlotDepth(bgMode, bg3Priority, slot) < 0;
+        // Greyed where the mode in front of you has no such plane. Only the
+        // arrangement the game is actually in can say that, so the other one's
+        // sliders are all shown live.
+        items.back().Dimmed = family == currentFamily
+            && depth3dSlotDepth(bgMode, bg3Priority, slot) < 0;
         items.back().PreviewSlot = slot;
     }
+
+    // The backdrop takes no depth -- it is one colour filling the screen, and
+    // always furthest back -- but it closes the list so the stack reads to the
+    // bottom, and its preview shows what the frame is built on.
+    AddMenuDisabledOption(items, "Backdrop"_s);
+    items.back().PreviewSlot = DEPTH3D_PREVIEW_BACKDROP;
 
     items.emplace_back(nullptr, MenuItemType::Textarea, "  0 at the screen, higher further back."_s, ""_s);
     items.emplace_back(nullptr, MenuItemType::Textarea, "  Greyed rows are slots this mode does not draw."_s, ""_s);
@@ -1373,32 +1408,34 @@ bool settingsReadWriteFullListByGame(bool writeMode)
         config3dsReadWriteEnum(stream, writeMode, "PaletteDeferBgMask=%d\n", &settings3DS.PaletteDeferBgMask, 0, 7);
     }
 
-    if (writeMode || detectedConfigVersion >= 1.7f) {
+    if (writeMode || detectedConfigVersion >= 1.9f) {
         config3dsReadWriteEnum(stream, writeMode, "Depth3DEnabled=%d\n", &settings3DS.Depth3DEnabled, 0, 1);
 
-        static const char *depth3DKey[DEPTH3D_SLOT_COUNT] = {
-            "Depth3DBG1P0=%d\n", "Depth3DBG1P1=%d\n",
-            "Depth3DBG2P0=%d\n", "Depth3DBG2P1=%d\n",
-            "Depth3DBG3P0=%d\n", "Depth3DBG3P1=%d\n",
-            "Depth3DBG4P0=%d\n", "Depth3DBG4P1=%d\n",
-            "Depth3DOBJP0=%d\n", "Depth3DOBJP1=%d\n", "Depth3DOBJP2=%d\n", "Depth3DOBJP3=%d\n",
-            "Depth3DBG3P1Front=%d\n",
+        static const char *depth3DKey[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT] = {
+            {
+                "Depth3DBG1P0=%d\n", "Depth3DBG1P1=%d\n",
+                "Depth3DBG2P0=%d\n", "Depth3DBG2P1=%d\n",
+                "Depth3DBG3P0=%d\n", "Depth3DBG3P1=%d\n",
+                "Depth3DBG4P0=%d\n", "Depth3DBG4P1=%d\n",
+                "Depth3DOBJP0=%d\n", "Depth3DOBJP1=%d\n", "Depth3DOBJP2=%d\n", "Depth3DOBJP3=%d\n",
+                "Depth3DBG3P1Front=%d\n",
+            },
+            {
+                "Depth3DM27BG1P0=%d\n", "Depth3DM27BG1P1=%d\n",
+                "Depth3DM27BG2P0=%d\n", "Depth3DM27BG2P1=%d\n",
+                "Depth3DM27BG3P0=%d\n", "Depth3DM27BG3P1=%d\n",
+                "Depth3DM27BG4P0=%d\n", "Depth3DM27BG4P1=%d\n",
+                "Depth3DM27OBJP0=%d\n", "Depth3DM27OBJP1=%d\n", "Depth3DM27OBJP2=%d\n", "Depth3DM27OBJP3=%d\n",
+                "Depth3DM27BG3P1Front=%d\n",
+            },
         };
 
-        // The keys are read in the order they are written, so the slot added
-        // after the others is read last and only from a file new enough to
-        // carry it. An older file gets it seeded from the single BG3 setting
-        // it used to have, which is what that setting meant there.
-        int knownSlots = detectedConfigVersion >= 1.8f || writeMode
-            ? DEPTH3D_SLOT_COUNT
-            : DEPTH3D_BG3_PRIO1_FRONT;
-
-        for (int slot = 0; slot < knownSlots; slot++) {
-            config3dsReadWriteEnum(stream, writeMode, depth3DKey[slot], &settings3DS.Depth3D[slot], -DEPTH3D_MAX, DEPTH3D_MAX);
+        for (int family = 0; family < DEPTH3D_FAMILY_COUNT; family++) {
+            for (int slot = 0; slot < DEPTH3D_SLOT_COUNT; slot++) {
+                config3dsReadWriteEnum(stream, writeMode, depth3DKey[family][slot],
+                    &settings3DS.Depth3D[family][slot], -DEPTH3D_MAX, DEPTH3D_MAX);
+            }
         }
-
-        if (knownSlots < DEPTH3D_SLOT_COUNT)
-            settings3DS.Depth3D[DEPTH3D_BG3_PRIO1_FRONT] = settings3DS.Depth3D[DEPTH3D_BG3_PRIO1];
     }
 
     config3dsReadWriteInt32(stream, writeMode, "Frameskips=%d\n", &settings3DS.MaxFrameSkips, 0, 4);
@@ -2084,8 +2121,10 @@ void showMenu() {
     int currentMenuTab = menu3dsGetLastSelectedTabIndex();
 
     // The frame the depth previews are taken from is the one the game stopped
-    // on, so they are dropped every time the menu is opened over a new one.
+    // on, so they are dropped every time the menu is opened over a new one, and
+    // the depth tab starts on the sliders the game is actually using.
     menu3dsInvalidateSlotPreviews();
+    menu3dsResetDepth3DFamily();
 
     // 1. first boot
     // 2. new game loaded

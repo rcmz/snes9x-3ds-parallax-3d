@@ -203,13 +203,15 @@ typedef struct
 typedef struct
 {
     // Shift in SNES pixels for the right eye, per configurable slot; the left
-    // eye uses the negated value. Index = DEPTH3D_SLOT.
-    s8              slotShift[DEPTH3D_SLOT_COUNT];
+    // eye uses the negated value. Indexed the way depthSlotSource points into
+    // it, by arrangement and then DEPTH3D_SLOT.
+    s8              slotShift[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT];
 
-    // Which configurable slot each hardware depth slot draws its shift from,
-    // or -1 for the slots nothing configurable lands on. Sprites are fixed at
-    // slots 3, 6, 9 and 12; a background's two priorities land on slots that
-    // depend on the background mode, so those are recorded as the modes assign
+    // Which configurable slot each hardware depth slot draws its shift from, as
+    // family * DEPTH3D_SLOT_COUNT + slot, or -1 for the slots nothing
+    // configurable lands on. A background's two priorities land on hardware
+    // slots that depend on the background mode, and the mode also says which
+    // arrangement's depths apply, so both are recorded as the modes assign
     // them. Keeping the mapping rather than the resolved shifts lets the paused
     // preview follow the menu without re-rendering the frame.
     s8              depthSlotSource[SNES_DEPTH_SLOTS];
@@ -310,15 +312,15 @@ void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
 // have to paint over the low priority to fill anything, which
 // would cost more than the gap does, so it is left alone.
 //---------------------------------------------------------
-static inline int gpu3dsGetPriorityFillWidth(int bg)
+static inline int gpu3dsGetPriorityFillWidth(int bg, int family)
 {
     const SStereoLayerState *stereo = &GPU3DSExt.stereo;
 
     if (!stereo->active)
         return 0;
 
-    int lowShift = stereo->slotShift[DEPTH3D_BG_SLOT(bg, 0)];
-    int highShift = stereo->slotShift[DEPTH3D_BG_SLOT(bg, 1)];
+    int lowShift = stereo->slotShift[family][DEPTH3D_BG_SLOT(bg, 0)];
+    int highShift = stereo->slotShift[family][DEPTH3D_BG_SLOT(bg, 1)];
 
     return lowShift > highShift ? lowShift - highShift : 0;
 }
@@ -329,14 +331,15 @@ static inline int gpu3dsGetPriorityFillWidth(int bg)
 // so it is recorded where the modes assign it rather than
 // duplicated as a table.
 //---------------------------------------------------------
-static inline void gpu3dsMapPlaneDepthSlots(int bg, int slot0, int slot1)
+static inline void gpu3dsMapPlaneDepthSlots(int bg, int family, int slot0, int slot1)
 {
     SStereoLayerState *stereo = &GPU3DSExt.stereo;
+    int base = family * DEPTH3D_SLOT_COUNT;
 
     // Recorded whether or not any depth is in force: the menu's slot previews
     // need the mapping even when the feature itself is switched off.
     if (slot0 >= 0 && slot0 < SNES_DEPTH_SLOTS)
-        stereo->depthSlotSource[slot0] = (s8)DEPTH3D_BG_SLOT(bg, 0);
+        stereo->depthSlotSource[slot0] = (s8)(base + DEPTH3D_BG_SLOT(bg, 0));
 
     if (slot1 >= 0 && slot1 < SNES_DEPTH_SLOTS) {
         // Depth 13 is BG3's high priority lifted to the front of the frame by
@@ -344,10 +347,25 @@ static inline void gpu3dsMapPlaneDepthSlots(int bg, int slot0, int slot1)
         // different content, so it draws its depth from its own setting. A
         // frame that flips the bit part-way down has both, and each band then
         // gets the depth that belongs to it.
-        stereo->depthSlotSource[slot1] = (s8)(slot1 == 13
+        stereo->depthSlotSource[slot1] = (s8)(base + (slot1 == 13
             ? DEPTH3D_BG3_PRIO1_FRONT
-            : DEPTH3D_BG_SLOT(bg, 1));
+            : DEPTH3D_BG_SLOT(bg, 1)));
     }
+}
+
+//---------------------------------------------------------
+// Records where the sprite priorities draw their depth from.
+// Their hardware slots are the same in every mode, but which
+// arrangement's depths apply is not, so this is recorded per
+// band alongside the backgrounds rather than once per frame.
+//---------------------------------------------------------
+static inline void gpu3dsMapSpriteDepthSlots(int family)
+{
+    SStereoLayerState *stereo = &GPU3DSExt.stereo;
+    int base = family * DEPTH3D_SLOT_COUNT;
+
+    for (int priority = 0; priority < 4; priority++)
+        stereo->depthSlotSource[(priority + 1) * 3] = (s8)(base + DEPTH3D_OBJ_SLOT(priority));
 }
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub = false, bool reuseVertices = false);
 

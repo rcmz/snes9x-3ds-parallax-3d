@@ -297,16 +297,14 @@ int depth3dSlotDepth(int bgMode, bool bg3Priority, int slot) {
 }
 
 //---------------------------------------------------------
-// The order the sliders are listed in, front-most first.
+// The slots each arrangement composites, front-most first.
 //
-// It is the stack modes 0 and 1 composite, which is the fullest the hardware
-// has, and it does not change with the mode: a row that moved out from under
-// the cursor as the game switched modes would be harder to aim at than one
-// that stays put and greys out. Modes 2 to 7 keep the same backgrounds in the
-// same relative order but interleave the sprites between them differently, so
-// there the list is a stable arrangement rather than that mode's exact order.
+// Within one arrangement the order is the hardware's and does not change, so a
+// row stays where it is while a game plays. Between the two it does change --
+// the sprites fall in different places among the backgrounds -- which is why
+// they are separate lists rather than one list that greys down.
 //---------------------------------------------------------
-static const u8 depth3dStack[DEPTH3D_SLOT_COUNT] = {
+static const u8 depth3dStackMode01[] = {
     DEPTH3D_BG3_PRIO1_FRONT,    // 13, only while $2105 bit 3 is set in mode 1
     DEPTH3D_OBJ_PRIO3,          // 12
     DEPTH3D_BG1_PRIO1,          // 11
@@ -322,6 +320,23 @@ static const u8 depth3dStack[DEPTH3D_SLOT_COUNT] = {
     DEPTH3D_BG4_PRIO0,          //  1
 };
 
-const u8 *depth3dSlotOrder() {
-    return depth3dStack;
+static const u8 depth3dStackMode27[] = {
+    DEPTH3D_OBJ_PRIO3,          // 12
+    DEPTH3D_BG1_PRIO1,          // 11
+    DEPTH3D_OBJ_PRIO2,          //  9
+    DEPTH3D_BG2_PRIO1,          //  8
+    DEPTH3D_OBJ_PRIO1,          //  6
+    DEPTH3D_BG1_PRIO0,          //  5
+    DEPTH3D_OBJ_PRIO0,          //  3
+    DEPTH3D_BG2_PRIO0,          //  2
+};
+
+const u8 *depth3dFamilySlots(int family, int *count) {
+    if (family == DEPTH3D_FAMILY_MODE27) {
+        *count = (int)(sizeof(depth3dStackMode27) / sizeof(depth3dStackMode27[0]));
+        return depth3dStackMode27;
+    }
+
+    *count = (int)(sizeof(depth3dStackMode01) / sizeof(depth3dStackMode01[0]));
+    return depth3dStackMode01;
 }

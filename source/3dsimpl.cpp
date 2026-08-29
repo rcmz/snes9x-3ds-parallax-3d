@@ -1280,7 +1280,7 @@ bool impl3dsCaptureDepthSlotPreviews(u16 *tiles)
 	const int bpp = gpu3dsGetPixelSize(GPU_RGB8);
 	const int stride = SCREEN_HEIGHT * bpp;
 
-	for (int slot = 0; slot < DEPTH3D_SLOT_COUNT; slot++) {
+	for (int slot = 0; slot < DEPTH3D_PREVIEW_COUNT; slot++) {
 		gpu3dsSetDepthSlotIsolation(slot);
 
 		gpu3dsFrameBegin(0, true);

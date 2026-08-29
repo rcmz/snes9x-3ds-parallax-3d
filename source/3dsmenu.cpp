@@ -74,7 +74,7 @@ typedef enum {
 // tab needs them and kept until the frame behind the menu can
 // change again.
 //---------------------------------------------------------
-static u16 slotPreviews[DEPTH3D_SLOT_COUNT * DEPTH3D_PREVIEW_WIDTH * DEPTH3D_PREVIEW_HEIGHT];
+static u16 slotPreviews[DEPTH3D_PREVIEW_COUNT * DEPTH3D_PREVIEW_WIDTH * DEPTH3D_PREVIEW_HEIGHT];
 static bool slotPreviewsCaptured = false;
 
 void menu3dsInvalidateSlotPreviews()
@@ -84,7 +84,7 @@ void menu3dsInvalidateSlotPreviews()
 
 void menu3dsDrawSlotPreview(int slot, int x, int y)
 {
-    if (!slotPreviewsCaptured || slot < 0 || slot >= DEPTH3D_SLOT_COUNT)
+    if (!slotPreviewsCaptured || slot < 0 || slot >= DEPTH3D_PREVIEW_COUNT)
         return;
 
     // A slot the game is not drawing on previews as an empty frame, so the
@@ -314,6 +314,12 @@ void menu3dsDrawItems(
         {
             color = disabledItemTextColor;
             ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, settings3DS.SecondScreenWidth - horizontalPadding, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
+
+            // A row can carry a picture without being adjustable: the backdrop
+            // takes no depth but still belongs in the stack.
+            if (currentTab->MenuItems[i].PreviewSlot >= 0)
+                menu3dsDrawSlotPreview(currentTab->MenuItems[i].PreviewSlot, previewX,
+                    rowY + (thisRowHeight - DEPTH3D_PREVIEW_HEIGHT - 2) / 2);
         }
         else if (currentTab->MenuItems[i].Type == MenuItemType::Action)
         {

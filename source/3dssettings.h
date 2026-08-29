@@ -58,10 +58,25 @@ typedef enum {
 // means anything in mode 1.
 int depth3dSlotDepth(int bgMode, bool bg3Priority, int slot);
 
-// Every slot, front-most first, in a fixed order that does not depend on the
-// mode. Which of them the mode actually composites is depth3dSlotDepth()'s
-// answer, so a slot keeps its place in the list and only goes inactive.
-const u8 *depth3dSlotOrder();
+// The two arrangements the hardware composites in, from appendix A-19: modes 0
+// and 1 stack up to four backgrounds with the sprites between them, modes 2 to
+// 7 stack two and interleave the sprites differently. A slot's place in the
+// frame, and so the depth that suits it, belongs to one arrangement or the
+// other, which is why each keeps its own set of depths.
+typedef enum {
+    DEPTH3D_FAMILY_MODE01,
+    DEPTH3D_FAMILY_MODE27,
+    DEPTH3D_FAMILY_COUNT,
+} DEPTH3D_FAMILY;
+
+#define DEPTH3D_FAMILY_OF(bgMode)   ((bgMode) <= 1 ? DEPTH3D_FAMILY_MODE01 : DEPTH3D_FAMILY_MODE27)
+
+// The slots that arrangement composites, front-most first, and how many of them
+// there are. A slot missing from a family has no place in its frames at all,
+// rather than merely going unused by the mode in front of you.
+const u8 *depth3dFamilySlots(int family, int *count);
+
+
 
 #ifndef VERSION_MAJOR
 #define VERSION_MAJOR 0
@@ -260,7 +275,9 @@ typedef struct {
     bool                Depth3DEnabled;         // Per-layer stereoscopic depth: give each SNES plane
                                                 // its own depth instead of a flat game screen.
 
-    s8                  Depth3D[DEPTH3D_SLOT_COUNT];  // Depth of each plane-and-priority slot.
+    s8                  Depth3D[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT];
+                                                // Depth of each plane-and-priority slot, per
+                                                // background-mode arrangement.
                                                 // Unit is SNES pixels of parallax at a fully open 3D
                                                 // slider: 0 = at the screen, > 0 = behind it,
                                                 // < 0 = in front of it.

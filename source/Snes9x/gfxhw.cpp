@@ -1689,7 +1689,7 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 			// continuation of whatever it belonged to. Both sides are filled,
 			// because the two eyes pull apart in opposite directions and share
 			// this geometry.
-			const int fillWidth = gpu3dsGetPriorityFillWidth(bg);
+			const int fillWidth = gpu3dsGetPriorityFillWidth(bg, DEPTH3D_FAMILY_OF(PPU.BGMode));
 
 			int32 fillTile = 0;
 			bool haveFillTile = false;
@@ -3320,48 +3320,50 @@ void S9xRenderScreenHardware (bool8 sub)
     }
 
 	#define DRAW_4COLOR_BG_INLINE(bg, p, d0, d1) \
-		gpu3dsMapPlaneDepthSlots(bg, d0, d1); \
+		gpu3dsMapPlaneDepthSlots(bg, DEPTH3D_FAMILY_OF(PPU.BGMode), d0, d1); \
 		if (bgEnabled[bg] && LayerRender.shouldRenderThisSegment[bg]) \
 			S9xDrawBackgroundHardwarePriority0Inline_4Color (PPU.BGMode, bg, sub, d0 * 256 + bgAlpha[bg], d1 * 256 + bgAlpha[bg]); \
 
 	#define DRAW_16COLOR_BG_INLINE(bg, p, d0, d1) \
-		gpu3dsMapPlaneDepthSlots(bg, d0, d1); \
+		gpu3dsMapPlaneDepthSlots(bg, DEPTH3D_FAMILY_OF(PPU.BGMode), d0, d1); \
 		if (bgEnabled[bg] && LayerRender.shouldRenderThisSegment[bg]) \
 			S9xDrawBackgroundHardwarePriority0Inline_16Color (PPU.BGMode, bg, sub, d0 * 256 + bgAlpha[bg], d1 * 256 + bgAlpha[bg]); \
 
 	#define DRAW_256COLOR_BG_INLINE(bg, p, d0, d1) \
-		gpu3dsMapPlaneDepthSlots(bg, d0, d1); \
+		gpu3dsMapPlaneDepthSlots(bg, DEPTH3D_FAMILY_OF(PPU.BGMode), d0, d1); \
 		if (bgEnabled[bg] && LayerRender.shouldRenderThisSegment[bg]) \
 			S9xDrawBackgroundHardwarePriority0Inline_256Color (PPU.BGMode, bg, sub, d0 * 256 + bgAlpha[bg], d1 * 256 + bgAlpha[bg]); \
 
 	#define DRAW_4COLOR_OFFSET_BG_INLINE(bg, p, d0, d1) \
-		gpu3dsMapPlaneDepthSlots(bg, d0, d1); \
+		gpu3dsMapPlaneDepthSlots(bg, DEPTH3D_FAMILY_OF(PPU.BGMode), d0, d1); \
 		if (bgEnabled[bg] && LayerRender.shouldRenderThisSegment[bg]) \
 			S9xDrawOffsetBackgroundHardwarePriority0Inline_4Color (PPU.BGMode, bg, sub, d0 * 256 + bgAlpha[bg], d1 * 256 + bgAlpha[bg]); \
 
 	#define DRAW_16COLOR_OFFSET_BG_INLINE(bg, p, d0, d1) \
-		gpu3dsMapPlaneDepthSlots(bg, d0, d1); \
+		gpu3dsMapPlaneDepthSlots(bg, DEPTH3D_FAMILY_OF(PPU.BGMode), d0, d1); \
 		if (bgEnabled[bg] && LayerRender.shouldRenderThisSegment[bg]) \
 			S9xDrawOffsetBackgroundHardwarePriority0Inline_16Color (PPU.BGMode, bg, sub, d0 * 256 + bgAlpha[bg], d1 * 256 + bgAlpha[bg]); \
 
 	#define DRAW_256COLOR_OFFSET_BG_INLINE(bg, p, d0, d1) \
-		gpu3dsMapPlaneDepthSlots(bg, d0, d1); \
+		gpu3dsMapPlaneDepthSlots(bg, DEPTH3D_FAMILY_OF(PPU.BGMode), d0, d1); \
 		if (bgEnabled[bg] && LayerRender.shouldRenderThisSegment[bg]) \
 			S9xDrawOffsetBackgroundHardwarePriority0Inline_256Color (PPU.BGMode, bg, sub, d0 * 256 + bgAlpha[bg], d1 * 256 + bgAlpha[bg]); \
 
 	#define DRAW_4COLOR_HIRES_BG_INLINE(bg, p, d0, d1) \
-		gpu3dsMapPlaneDepthSlots(bg, d0, d1); \
+		gpu3dsMapPlaneDepthSlots(bg, DEPTH3D_FAMILY_OF(PPU.BGMode), d0, d1); \
 		if (bgEnabled[bg] && LayerRender.shouldRenderThisSegment[bg]) \
 			S9xDrawHiresBackgroundHardwarePriority0Inline_4Color (PPU.BGMode, bg, sub, d0 * 256 + bgAlpha[bg], d1 * 256 + bgAlpha[bg]); \
 
 	#define DRAW_16COLOR_HIRES_BG_INLINE(bg, p, d0, d1) \
-		gpu3dsMapPlaneDepthSlots(bg, d0, d1); \
+		gpu3dsMapPlaneDepthSlots(bg, DEPTH3D_FAMILY_OF(PPU.BGMode), d0, d1); \
 		if (bgEnabled[bg] && LayerRender.shouldRenderThisSegment[bg]) \
 			S9xDrawHiresBackgroundHardwarePriority0Inline_16Color (PPU.BGMode, bg, sub, d0 * 256 + bgAlpha[bg], d1 * 256 + bgAlpha[bg]); \
 
 	if (settings3DS.LayerEnabled[LAYER_BACKDROP])
 		S9xUpdateBackdropSections(!isMode5or6 && sub, sub, bgAlpha[LAYER_BACKDROP]);
 	renderState.textureEnv = TEX_ENV_REPLACE_TEXTURE0_COLOR_ALPHA;
+
+	gpu3dsMapSpriteDepthSlots(DEPTH3D_FAMILY_OF(PPU.BGMode));
 
 	if (bgEnabled[LAYER_OBJ] && LayerRender.shouldRenderThisSegment[LAYER_OBJ]) {
 		S9xDrawOBJSHardware(sub, bgAlpha[LAYER_OBJ], 0);
