@@ -186,8 +186,9 @@ Notes:
 * The backdrop fills the screen, so it has no depth of its own and is always
   furthest back.
 * The feature needs the 3D screen, so it is unavailable on 2DS models, and it
-  needs **Enhanced Resolution** to be off, because the 512px render path leaves
-  no room for the off-screen margin that shifted planes draw into.
+  needs **Enhanced Resolution** to be off: a shift is added to the frame's
+  geometry in render-target pixels, and that path draws at twice the scale, so
+  every depth would come out at half the parallax asked for.
 * Mode 7 encodes depth as a single bit rather than a slot, so its planes are not
   covered.
 * Both eyes are rendered from the same frame's geometry, so the SNES

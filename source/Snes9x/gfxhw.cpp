@@ -1776,10 +1776,10 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 					}
 				}
 
-				// The two tilemap screens alternate every 32 entries, and the
-				// margin columns can run further along a row than the visible
-				// 33 tiles ever did, so the wrap is expressed for any distance
-				// rather than as the two points those 33 could reach.
+				// The two tilemap screens alternate every 32 entries. The wrap
+				// is expressed for any distance along the row rather than for
+				// the two points 33 tiles can reach, so it stays correct
+				// however far the loop runs.
 				if (tileSize == 8)
 				{
 					t++;

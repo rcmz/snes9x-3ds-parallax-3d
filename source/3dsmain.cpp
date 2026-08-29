@@ -828,8 +828,8 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     if (settings3DS.EnhancedResolution != Setting::EnhancedResolution::Off) {
         AddMenuHeader1(items, "3D DEPTH"_s);
         AddMenuDisabledOption(items, "  Needs Enhanced Resolution switched off."_s);
-        items.emplace_back(nullptr, MenuItemType::Textarea, "  The 512px render path leaves no room for the"_s, ""_s);
-        items.emplace_back(nullptr, MenuItemType::Textarea, "  off-screen margin a shifted plane draws into."_s, ""_s);
+        items.emplace_back(nullptr, MenuItemType::Textarea, "  The 512px render path draws at twice the"_s, ""_s);
+        items.emplace_back(nullptr, MenuItemType::Textarea, "  scale, which would halve every depth."_s, ""_s);
 
         return;
     }

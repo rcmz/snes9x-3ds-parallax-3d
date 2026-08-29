@@ -668,9 +668,10 @@ void gpu3dsUpdateStereoLayerShifts() {
     // The sprite slots are recorded per band along with the backgrounds, since
     // which arrangement's depths apply depends on the mode that band is in.
 
-    // The 512px render path already uses the full width of the render
-    // target, leaving no room for the off-screen margin the shifted
-    // layers need, so per-layer depth is a standard-resolution feature.
+    // The shift is added to vertex positions in target pixels, and the 512px
+    // render path draws the frame at twice the scale, so every depth would come
+    // out at half the parallax asked for. Per-layer depth is a
+    // standard-resolution feature until that path scales the shift to match.
     if (!stereo->supported || !settings3DS.Depth3DEnabled || GPU3DSExt.render2x.enabled || screenshot.dirty)
         return;
 

@@ -1177,7 +1177,8 @@ uint8 OBJOnLine[SNES_HEIGHT_EXTENDED][128];
 //---------------------------------------------------------
 // Number of 8 pixel sprite tiles that fall inside the visible
 // screen. Used for the hardware's per-scanline sprite budget,
-// so it deliberately ignores the stereo render margin.
+// which is what the SNES itself would have drawn, so it takes no
+// notice of any stereo shift applied at display time.
 //---------------------------------------------------------
 static inline int S9xOBJOnScreenTiles(int HPos, int Width)
 {
