@@ -176,7 +176,7 @@ namespace Setting {
     // edge when its shift moves it away from that edge.
     enum class Depth3DEdges {
         Layer,      // cut each slot back to the screen, so its strip is its own shift wide
-        Frame,      // one strip per eye instead, as wide as the largest shift in the frame
+        Frame,      // one strip per eye instead, as wide as the largest shift in the frame's own set of sliders
         None,       // neither: the tiles a game leaves just off-screen come into view
     };
 

@@ -1289,9 +1289,16 @@ bool impl3dsCaptureDepthSlotPreviews(u16 *tiles)
 			// The frame is normally opaque from the backdrop up, so the SNES
 			// screen is never cleared. A preview leaves the backdrop out and
 			// would otherwise be drawn over the frame still sitting there.
+			//
+			// The depth goes with it. Nothing else clears that buffer: the
+			// backdrop resets it every ordinary frame by covering the screen
+			// with depth writing on, and the backdrop is exactly what a preview
+			// leaves out. Left alone it would still hold the depths of the pass
+			// before, and a slot composited behind one already drawn there would
+			// fail the depth test and preview as empty.
 			C3D_RenderTargetClear(
 				GPU3DS.textures[gpu3dsGetSnesScreenTexture(GFX_LEFT)].target,
-				C3D_CLEAR_COLOR, 0, 0);
+				C3D_CLEAR_ALL, 0, 0);
 
 			// Which texture TARGET_SNES_MAIN resolves to is not part of the
 			// packed render state, so the target is forced to re-apply.

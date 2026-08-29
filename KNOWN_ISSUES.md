@@ -35,7 +35,9 @@ By default each slot's geometry is cut back to the visible screen before the
 shift moves it, so the slot runs out over a strip exactly as wide as its own
 shift and whatever sits behind it shows through. Slots left at 0 keep their full
 width. **Whole frame** leaves one strip per eye undrawn instead, as wide as the
-largest shift the frame used, which costs a few pixels from every slot. **None**
+largest shift in the set of sliders the frame was drawn with -- the whole set,
+not just the slots the current mode uses, so that the width does not change
+under you when a game changes mode. It costs a few pixels from every slot. **None**
 draws the tiles a game keeps just outside the screen, which are valid only where
 it meant to draw them, and whose overhang follows that layer's scroll -- so that
 strip can step in and out down the frame.

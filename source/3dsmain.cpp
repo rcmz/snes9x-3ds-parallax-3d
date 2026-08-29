@@ -941,7 +941,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     // bottom, and its preview shows what the frame is built on.
     AddMenuDisabledOption(items, "Backdrop"_s);
     items.back().PreviewSlot = DEPTH3D_PREVIEW_BACKDROP;
-    items.back().Selectable = true;
+    items.back().SelectableWhenDisabled = true;
 
 }
 
@@ -1450,8 +1450,13 @@ bool settingsReadWriteFullListByGame(bool writeMode)
         config3dsReadWriteEnum(stream, writeMode, "PaletteDeferBgMask=%d\n", &settings3DS.PaletteDeferBgMask, 0, 7);
     }
 
-    if (writeMode || detectedConfigVersion >= 1.9f) {
+    // Everything per-layer depth adds arrives in one step. It was spread over
+    // several while the feature was being built; there is no released build
+    // holding a config from any of those, so they collapse into the one version
+    // this fork writes.
+    if (writeMode || detectedConfigVersion >= 2.0f) {
         config3dsReadWriteEnum(stream, writeMode, "Depth3DEnabled=%d\n", &settings3DS.Depth3DEnabled, 0, 1);
+        config3dsReadWriteEnum(stream, writeMode, "Depth3DEdges=%d\n", &settings3DS.Depth3DEdges, 0, 2);
 
         static const char *depth3DKey[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT] = {
             {
@@ -1478,10 +1483,6 @@ bool settingsReadWriteFullListByGame(bool writeMode)
                     &settings3DS.Depth3D[family][slot], -DEPTH3D_MAX, DEPTH3D_MAX);
             }
         }
-    }
-
-    if (writeMode || detectedConfigVersion >= 2.0f) {
-        config3dsReadWriteEnum(stream, writeMode, "Depth3DEdges=%d\n", &settings3DS.Depth3DEdges, 0, 2);
     }
 
     config3dsReadWriteInt32(stream, writeMode, "Frameskips=%d\n", &settings3DS.MaxFrameSkips, 0, 4);

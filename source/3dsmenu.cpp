@@ -253,7 +253,7 @@ void menu3dsDrawItems(
     int subtitleTextColor,
     int offsetX = 0)
 {
-    int fontHeight = 13;
+    int fontHeight = FONT_HEIGHT;
     int rowHeight = currentTab->RowHeight;
 
     // Where a row's slot preview goes: clear of the longest slot name, and clear
@@ -333,7 +333,7 @@ void menu3dsDrawItems(
         {
             // A row the cursor can land on is part of the list, so it is drawn
             // like one rather than in the colour of a label.
-            color = !currentTab->MenuItems[i].Selectable
+            color = !currentTab->MenuItems[i].SelectableWhenDisabled
                 ? disabledItemTextColor
                 : (currentTab->SelectedItemIndex == i ? selectedItemTextColor : normalItemTextColor);
 

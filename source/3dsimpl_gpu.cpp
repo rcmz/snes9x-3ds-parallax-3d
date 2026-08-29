@@ -573,13 +573,15 @@ void gpu3dsDrawSnesScreen() {
 void gpu3dsUpdateStereoLayerShiftsForPreview() {
     SStereoLayerState *stereo = &GPU3DSExt.stereo;
     s8 previousSource[SNES_DEPTH_SLOTS];
+    u8 previousFamilies = stereo->familiesDrawn;
 
     memcpy(previousSource, stereo->depthSlotSource, sizeof(previousSource));
 
     gpu3dsUpdateStereoLayerShifts();
 
-    // The mapping is recorded while rendering, which is not happening now.
+    // Both are recorded while rendering, which is not happening now.
     memcpy(stereo->depthSlotSource, previousSource, sizeof(previousSource));
+    stereo->familiesDrawn = previousFamilies;
 }
 
 //---------------------------------------------------------
@@ -642,9 +644,8 @@ void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side) {
 }
 
 //---------------------------------------------------------
-// Converts the per-game plane depths into a per-layer pixel
-// shift for the current 3D slider position. Called once per
-// frame so both eyes use the same values.
+// Holds every slot but one off the screen, so the menu can show
+// what a single slot contributes to the frame. -1 draws normally.
 //---------------------------------------------------------
 void gpu3dsSetDepthSlotIsolation(int slot) {
     // DEPTH3D_SLOT_COUNT itself asks for the backdrop on its own: it carries no
@@ -653,6 +654,11 @@ void gpu3dsSetDepthSlotIsolation(int slot) {
     GPU3DSExt.stereo.isolateSlot = (s8)(slot >= 0 && slot <= DEPTH3D_SLOT_COUNT ? slot : -1);
 }
 
+//---------------------------------------------------------
+// Converts the per-game plane depths into a per-layer pixel
+// shift for the current 3D slider position. Called once per
+// frame so both eyes use the same values.
+//---------------------------------------------------------
 void gpu3dsUpdateStereoLayerShifts() {
     SStereoLayerState *stereo = &GPU3DSExt.stereo;
 
@@ -660,13 +666,11 @@ void gpu3dsUpdateStereoLayerShifts() {
 
     memset(stereo->slotShift, 0, sizeof(stereo->slotShift));
     memset(stereo->depthSlotSource, -1, sizeof(stereo->depthSlotSource));
+    stereo->familiesDrawn = 0;
     stereo->active = false;
     stereo->eye = 0;
     stereo->clipTiles = false;
     stereo->windowEdges = false;
-
-    // The sprite slots are recorded per band along with the backgrounds, since
-    // which arrangement's depths apply depends on the mode that band is in.
 
     // The shift is added to vertex positions in target pixels, and the 512px
     // render path draws the frame at twice the scale, so every depth would come

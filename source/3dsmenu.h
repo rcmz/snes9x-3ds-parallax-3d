@@ -92,10 +92,10 @@ public:
     // -1 on every other row.
     int     PreviewSlot = -1;
 
-    // Set on a row that the cursor can land on but that does nothing when
-    // chosen. The backdrop is one: it belongs in the list and has a picture,
-    // but there is no depth to give it.
-    bool    Selectable = false;
+    // Set on a Disabled row that the cursor should still land on, because it
+    // belongs to the list rather than labelling it. The backdrop is one: it
+    // has a place in the stack and a picture, but no depth to give it.
+    bool    SelectableWhenDisabled = false;
 
     // All these fields are used if this is a picker.
     // (ID = 100000)
@@ -127,7 +127,7 @@ public:
 
     bool IsHighlightable() const {
         if (Type == MenuItemType::Disabled)
-            return Selectable;
+            return SelectableWhenDisabled;
 
         return !( Type == MenuItemType::Header1 || Type == MenuItemType::Header2 || Type == MenuItemType::Textarea );
     }

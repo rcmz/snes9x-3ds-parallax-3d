@@ -222,6 +222,11 @@ typedef struct
     // preview follow the menu without re-rendering the frame.
     s8              depthSlotSource[SNES_DEPTH_SLOTS];
 
+    // Bit per DEPTH3D_FAMILY the frame drew anything in, recorded as the bands
+    // are rendered. A frame is normally one arrangement, but a game may change
+    // mode part-way down and end up in both.
+    u8              familiesDrawn;
+
     // Sign of the shift for the eye currently being drawn:
     // -1 = left, +1 = right, 0 = flat (no per-layer shift)
     s8              eye;
@@ -290,13 +295,16 @@ void gpu3dsUpdateStereoLayerShiftsForPreview();
 // Width, in SNES pixels, of the strip an eye leaves undrawn at
 // each screen edge, for the whole-frame edge mode.
 //
-// One strip stands for every slot, so it has to cover the
-// largest shift in either direction -- but only over the slots
-// this frame actually drew. Depths are kept per composite
-// arrangement, and a depth belonging to the arrangement the game
-// is not in would otherwise trim a frame it has no part in. A
-// frame that changes mode part-way down draws slots from both,
-// and is bounded over exactly those.
+// One strip stands for every slot, so it has to cover the largest
+// shift in either direction. It is bounded over every slot of the
+// arrangement the frame was drawn in, not over the slots the mode
+// happened to use: which planes a mode has varies inside an
+// arrangement -- mode 1 drops BG4, mode 6 keeps only BG1 -- and
+// bounding over those would change the width of the strip, and so
+// the width of the picture, every time a game changed mode. The
+// two arrangements stay separate, because a depth belonging to
+// the one the game is not in has no part in this frame at all. A
+// frame that changes arrangement part-way down uses both.
 //---------------------------------------------------------
 static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *right)
 {
@@ -311,16 +319,19 @@ static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *rig
     int shiftMax = 0;
     int shiftMin = 0;
 
-    for (int i = 0; i < SNES_DEPTH_SLOTS; i++) {
-        int source = stereo->depthSlotSource[i];
-
-        if (source < 0)
+    for (int family = 0; family < DEPTH3D_FAMILY_COUNT; family++) {
+        if (!(stereo->familiesDrawn & (1 << family)))
             continue;
 
-        int shift = stereo->slotShift[source / DEPTH3D_SLOT_COUNT][source % DEPTH3D_SLOT_COUNT];
+        int slotCount = 0;
+        const u8 *slots = depth3dFamilySlots(family, &slotCount);
 
-        if (shift > shiftMax) shiftMax = shift;
-        if (shift < shiftMin) shiftMin = shift;
+        for (int i = 0; i < slotCount; i++) {
+            int shift = stereo->slotShift[family][slots[i]];
+
+            if (shift > shiftMax) shiftMax = shift;
+            if (shift < shiftMin) shiftMin = shift;
+        }
     }
 
     int eye = side == GFX_RIGHT ? 1 : -1;
@@ -397,6 +408,10 @@ static inline void gpu3dsMapSpriteDepthSlots(int family)
 {
     SStereoLayerState *stereo = &GPU3DSExt.stereo;
     int base = family * DEPTH3D_SLOT_COUNT;
+
+    // Called once for every band, whatever that band draws, so this is where
+    // the frame's arrangements are counted for the whole-frame edge strip.
+    stereo->familiesDrawn |= (u8)(1 << family);
 
     for (int priority = 0; priority < 4; priority++)
         stereo->depthSlotSource[(priority + 1) * 3] = (s8)(base + DEPTH3D_OBJ_SLOT(priority));

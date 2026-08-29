@@ -2093,7 +2093,6 @@ void S9xDrawBackgroundMosaicHardware(
         b2 += (ScreenLine & 0x1f) << 5;
 
         int outBlockW = S;
-
         for (int X = 0; X < 256; X += outBlockW)
         {
             // In hires mode we render to 256-wide output while sampling from
@@ -2797,7 +2796,7 @@ void S9xDrawOBJSHardware (bool8 sub, int depth = 0, int priority = 0)
 					{
 						// No clipping at all.
 						//
-						for (; X <= 256 && X < PPU.OBJ[S].HPos + objWidth; X += 8)
+						for (; X<=256 && X<PPU.OBJ[S].HPos+objWidth; X += 8)
 						{
 							S9xDrawOBJTileHardware2 (sub, priorityOffset, BaseTile|TileX, X, Y, TileLine, TileHeight);
 							TileX=(TileX+TileInc) & 0x0f;

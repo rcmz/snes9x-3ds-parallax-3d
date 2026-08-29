@@ -168,11 +168,14 @@ of one eye and something has to give there. **Edge cropping** decides what.
   sits behind it shows through there. A slot left at `0` keeps the full width
   whatever its neighbours are set to.
 * **Whole frame** leaves one strip undrawn per eye instead -- the right eye at
-  its left edge, the left eye at its right -- as wide as the largest shift the
-  frame used. Nothing shows through it at all, at the cost of a few pixels from
-  every slot, including the ones that never moved. The width is taken over the
-  slots the frame actually drew, so a large depth sitting in the arrangement the
-  game is not currently in does not trim the picture.
+  its left edge, the left eye at its right -- as wide as the largest shift in
+  the set of sliders the frame was drawn with. Nothing shows through it at all,
+  at the cost of a few pixels from every slot, including the ones that never
+  moved. The width is taken over the whole set rather than over the slots the
+  current mode happens to use: modes inside one set do not all have the same
+  planes, and sizing it by those would change the width of the picture every
+  time a game changed mode. The other set is left out of it, since its depths
+  have no part in this frame.
 * **None** draws the tiles anyway. A game keeps its tilemap valid only where it
   means to draw, so what appears is whatever it last left there: real scenery in
   a game whose map wraps, unrelated tiles in one that reuses the space. How far
