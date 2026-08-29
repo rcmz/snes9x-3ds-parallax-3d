@@ -801,6 +801,13 @@ void menu3dsResetDepth3DFamily() {
     depth3dShownFamily = DEPTH3D_FAMILY_OF(PPU.BGMode);
 }
 
+// The previews are of the frame behind the menu, and that frame was drawn in
+// one arrangement. The other arrangement's sliders are for planes it is not
+// drawing, so there is nothing of theirs to show and none is captured.
+bool menu3dsDepth3DPreviewsApply() {
+    return depth3dShownFamily == DEPTH3D_FAMILY_OF(PPU.BGMode);
+}
+
 void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     items.clear();
 
@@ -873,6 +880,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         });
 
     int family = depth3dShownFamily;
+    bool showing = family == currentFamily;
     int slotCount = 0;
     const u8 *order = depth3dFamilySlots(family, &slotCount);
 
@@ -888,8 +896,11 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         // Greyed where the mode in front of you has no such plane. Only the
         // arrangement the game is actually in can say that, so the other one's
         // sliders are all shown live.
-        items.back().Dimmed = family == currentFamily
-            && depth3dSlotDepth(bgMode, bg3Priority, slot) < 0;
+        items.back().Dimmed = showing && depth3dSlotDepth(bgMode, bg3Priority, slot) < 0;
+
+        // Every row keeps its picture, so the list is the same shape whichever
+        // set is shown. The other arrangement's pictures come out black,
+        // because the frame on screen was not drawn by it.
         items.back().PreviewSlot = slot;
     }
 
@@ -900,7 +911,9 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     items.back().PreviewSlot = DEPTH3D_PREVIEW_BACKDROP;
 
     items.emplace_back(nullptr, MenuItemType::Textarea, "  0 at the screen, higher further back."_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  Greyed rows are slots this mode does not draw."_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, showing
+        ? "  Greyed rows are slots this mode does not draw."_s
+        : "  Previews are blank while another mode is on screen."_s, ""_s);
 }
 
 void makeOptionMenu(std::vector<SMenuItem>& items, std::vector<SMenuTab>& menuTabs, int& currentMenuTab) {

@@ -145,10 +145,12 @@ really is.
 The rows are twice the usual height to fit those previews, so about six sliders
 are on screen at once and the rest are a scroll away.
 
-Previews are of the frame as it was drawn, which is in whichever arrangement the
-game was using. Looking at the other arrangement's sliders therefore shows what
-those planes and priorities hold *now*, not what they will hold once that
-arrangement runs.
+Previews are of the frame behind the menu, and that frame was drawn in one
+arrangement. The other arrangement's sliders keep their rows and their frames but
+come out black: those planes are not what is on screen, and showing the current
+frame's content next to them would say something untrue about the depths being
+set. The two sets are independent -- the sliders shown are always the ones being
+changed.
 
 Both the greying and the previews come from the frame the game stopped on. A game
 that changes mode between rooms, or part-way down a frame, will look different

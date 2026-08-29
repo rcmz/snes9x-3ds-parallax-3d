@@ -134,8 +134,25 @@ public:
     // them fit on the screen as a result.
     int     RowHeight = FONT_HEIGHT;
 
+    // How many rows fit from the current scroll position. Rows are not all the
+    // same height -- only the ones carrying a picture take the tab's height --
+    // so this counts them rather than dividing.
     int     VisibleItems() const {
-        return MENU_HEIGHT * FONT_HEIGHT / RowHeight;
+        const int available = MENU_HEIGHT * FONT_HEIGHT;
+        int used = 0;
+        int count = 0;
+
+        for (int i = FirstItemIndex < 0 ? 0 : FirstItemIndex; i < static_cast<int>(MenuItems.size()); i++) {
+            int height = MenuItems[i].PreviewSlot >= 0 ? RowHeight : FONT_HEIGHT;
+
+            if (used + height > available)
+                break;
+
+            used += height;
+            count++;
+        }
+
+        return count > 0 ? count : 1;
     }
     std::string SubTitle;
     std::string Title;
@@ -186,6 +203,7 @@ void menu3dsDrawEverything(int& currentMenuTab, std::vector<SMenuTab>& menuTabs)
 // sliders in the 3D depth tab.
 void menu3dsInvalidateSlotPreviews();
 void menu3dsResetDepth3DFamily();
+bool menu3dsDepth3DPreviewsApply();
 void menu3dsDrawSlotPreview(int slot, int x, int y);
 void menu3dsSwapBuffersAndWaitForVBlank();
 

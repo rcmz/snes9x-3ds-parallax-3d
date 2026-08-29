@@ -84,7 +84,7 @@ void menu3dsInvalidateSlotPreviews()
 
 void menu3dsDrawSlotPreview(int slot, int x, int y)
 {
-    if (!slotPreviewsCaptured || slot < 0 || slot >= DEPTH3D_PREVIEW_COUNT)
+    if (slot < 0 || slot >= DEPTH3D_PREVIEW_COUNT)
         return;
 
     // A slot the game is not drawing on previews as an empty frame, so the
@@ -93,6 +93,15 @@ void menu3dsDrawSlotPreview(int slot, int x, int y)
     int border = Themes[static_cast<int>(settings3DS.Theme)].disabledItemTextColor;
 
     ui3dsDrawRect(x - 1, y, x + DEPTH3D_PREVIEW_WIDTH + 1, y + DEPTH3D_PREVIEW_HEIGHT + 2, border);
+
+    // Nothing captured means the sliders on screen are the other
+    // arrangement's, which the frame behind the menu was not drawn by. The
+    // frame stays, at its full size, so the list keeps its shape.
+    if (!slotPreviewsCaptured) {
+        ui3dsDrawRect(x, y + 1, x + DEPTH3D_PREVIEW_WIDTH, y + DEPTH3D_PREVIEW_HEIGHT + 1, 0);
+        return;
+    }
+
     ui3dsDrawPixels(x, y + 1, DEPTH3D_PREVIEW_WIDTH, DEPTH3D_PREVIEW_HEIGHT,
         slotPreviews + slot * DEPTH3D_PREVIEW_WIDTH * DEPTH3D_PREVIEW_HEIGHT);
 }
@@ -1211,7 +1220,8 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
         // the game screen, so the screen is marked for redrawing.
         bool depthTabOpen = !isDialog && currentMenuTab == TAB_DEPTH3D && settings3DS.isRomLoaded;
 
-        if (depthTabOpen && settings3DS.Depth3DEnabled && menu3dsCaptureSlotPreviews()) {
+        if (depthTabOpen && settings3DS.Depth3DEnabled && menu3dsDepth3DPreviewsApply()
+            && menu3dsCaptureSlotPreviews()) {
             gameScreenDirty = true;
             secondScreenDirty = true;
         }
