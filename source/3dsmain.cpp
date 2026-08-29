@@ -864,9 +864,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         // Three lines is what the dialog has room for, and each has to fit a
         // line on its own or it wraps and pushes the rest off the bottom.
         "How to crop shifted layer edges."_s,
-        // The tab row draws the chosen one right-aligned in 140px, so these have
-        // to stay inside that or their left end is cut off there.
-        makePickerOptions({"Per layer (individually)", "Whole frame (max shift)", "None (off-screen tiles)"}),
+        makePickerOptions({"Per layer (crop layers individually)", "Whole frame (crop all layers by the max amount)", "None (use off-screen tiles)"}),
         static_cast<int>(settings3DS.Depth3DEdges), DIALOG_TYPE_INFO, true,
         []( int val ) {
             if (CheckAndUpdate(settings3DS.Depth3DEdges, static_cast<Setting::Depth3DEdges>(val))) {
