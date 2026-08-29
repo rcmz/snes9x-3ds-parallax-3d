@@ -863,16 +863,19 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     // The two arrangements stack their planes differently, so each keeps its
     // own sliders and the list is one or the other. The one the game is in is
     // marked, and is what the menu opens on.
+    char currentName[32];
+    snprintf(currentName, sizeof(currentName), "%s  (current: %d)",
+        currentFamily == DEPTH3D_FAMILY_MODE01 ? "Modes 0-1" : "Modes 2-7", bgMode);
+
     std::vector<std::string> familyNames = {
-        currentFamily == DEPTH3D_FAMILY_MODE01 ? "Modes 0-1  (current)" : "Modes 0-1",
-        currentFamily == DEPTH3D_FAMILY_MODE27 ? "Modes 2-7  (current)" : "Modes 2-7",
+        currentFamily == DEPTH3D_FAMILY_MODE01 ? currentName : "Modes 0-1",
+        currentFamily == DEPTH3D_FAMILY_MODE27 ? currentName : "Modes 2-7",
     };
 
-    char pickerLabel[48];
-    snprintf(pickerLabel, sizeof(pickerLabel), "  Sliders for  (current mode: %d)", bgMode);
-
-    AddMenuPicker(items, pickerLabel,
-        "Each arrangement of the SNES' planes keeps its own depths, because the planes stack differently in each."_s,
+    AddMenuPicker(items, "  Sliders for"_s,
+        "Each arrangement of the SNES' planes keeps its own depths, because the planes stack differently in each.\n"
+        "Greyed rows are slots the current mode does not draw.\n"
+        "Previews are blank unless the arrangement shown is the one on screen."_s,
         makePickerOptions(familyNames), depth3dShownFamily, DIALOG_TYPE_INFO, true,
         []( int val ) {
             if (CheckAndUpdate(depth3dShownFamily, val)) {
@@ -914,9 +917,6 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     AddMenuDisabledOption(items, "Backdrop"_s);
     items.back().PreviewSlot = DEPTH3D_PREVIEW_BACKDROP;
 
-    items.emplace_back(nullptr, MenuItemType::Textarea, showing
-        ? "  Greyed rows are slots this mode does not draw."_s
-        : "  Previews are blank while another mode is on screen."_s, ""_s);
 }
 
 void makeOptionMenu(std::vector<SMenuItem>& items, std::vector<SMenuTab>& menuTabs, int& currentMenuTab) {
@@ -2136,11 +2136,17 @@ void showMenu() {
     static std::vector<SMenuItem> emptyCheats;
     int currentMenuTab = menu3dsGetLastSelectedTabIndex();
 
-    // The frame the depth previews are taken from is the one the game stopped
-    // on, so they are dropped every time the menu is opened over a new one, and
-    // the depth tab starts on the sliders the game is actually using.
+    // The depth tab is built from the mode and the frame the game stopped on,
+    // both of which are different every time the menu opens. Its previews are
+    // dropped, its list goes back to the sliders the game is using, and the tab
+    // is marked for rebuilding -- without that it would still be showing the
+    // order, the greying and the mode of whenever it was last built.
     menu3dsInvalidateSlotPreviews();
-    menu3dsResetDepth3DFamily();
+
+    if (settings3DS.isRomLoaded) {
+        menu3dsResetDepth3DFamily();
+        menu3dsMarkTabDirty(TAB_DEPTH3D);
+    }
 
     // 1. first boot
     // 2. new game loaded
