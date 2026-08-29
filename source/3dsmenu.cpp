@@ -322,7 +322,12 @@ void menu3dsDrawItems(
         }
         else if (currentTab->MenuItems[i].Type == MenuItemType::Disabled)
         {
-            color = disabledItemTextColor;
+            // A row the cursor can land on is part of the list, so it is drawn
+            // like one rather than in the colour of a label.
+            color = !currentTab->MenuItems[i].Selectable
+                ? disabledItemTextColor
+                : (currentTab->SelectedItemIndex == i ? selectedItemTextColor : normalItemTextColor);
+
             ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, settings3DS.SecondScreenWidth - horizontalPadding, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
 
             // A row can carry a picture without being adjustable: the backdrop
@@ -1165,11 +1170,7 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
                 moveCursorTimes++;
             }
             while (
-                (currentTab->MenuItems[currentTab->SelectedItemIndex].Type == MenuItemType::Disabled ||
-                currentTab->MenuItems[currentTab->SelectedItemIndex].Type == MenuItemType::Header1 ||
-                currentTab->MenuItems[currentTab->SelectedItemIndex].Type == MenuItemType::Header2 ||
-                currentTab->MenuItems[currentTab->SelectedItemIndex].Type == MenuItemType::Textarea
-                ) &&
+                !currentTab->MenuItems[currentTab->SelectedItemIndex].IsHighlightable() &&
                 moveCursorTimes < currentTab->MenuItems.size());
 
             currentTab->MakeSureSelectionIsOnScreen(maxItems, isDialog ? 1 : 2);
@@ -1199,11 +1200,7 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
                 moveCursorTimes++;
             }
             while (
-                (currentTab->MenuItems[currentTab->SelectedItemIndex].Type == MenuItemType::Disabled ||
-                currentTab->MenuItems[currentTab->SelectedItemIndex].Type == MenuItemType::Header1 ||
-                currentTab->MenuItems[currentTab->SelectedItemIndex].Type == MenuItemType::Header2 ||
-                currentTab->MenuItems[currentTab->SelectedItemIndex].Type == MenuItemType::Textarea
-                ) &&
+                !currentTab->MenuItems[currentTab->SelectedItemIndex].IsHighlightable() &&
                 moveCursorTimes < currentTab->MenuItems.size());
 
             currentTab->MakeSureSelectionIsOnScreen(maxItems, isDialog ? 1 : 2);

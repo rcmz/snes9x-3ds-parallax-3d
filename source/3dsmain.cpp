@@ -918,6 +918,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     // bottom, and its preview shows what the frame is built on.
     AddMenuDisabledOption(items, "Backdrop"_s);
     items.back().PreviewSlot = DEPTH3D_PREVIEW_BACKDROP;
+    items.back().Selectable = true;
 
 }
 

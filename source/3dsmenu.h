@@ -92,6 +92,11 @@ public:
     // -1 on every other row.
     int     PreviewSlot = -1;
 
+    // Set on a row that the cursor can land on but that does nothing when
+    // chosen. The backdrop is one: it belongs in the list and has a picture,
+    // but there is no depth to give it.
+    bool    Selectable = false;
+
     // All these fields are used if this is a picker.
     // (ID = 100000)
     //
@@ -121,7 +126,10 @@ public:
     }
 
     bool IsHighlightable() const {
-        return !( Type == MenuItemType::Disabled || Type == MenuItemType::Header1 || Type == MenuItemType::Header2 || Type == MenuItemType::Textarea );
+        if (Type == MenuItemType::Disabled)
+            return Selectable;
+
+        return !( Type == MenuItemType::Header1 || Type == MenuItemType::Header2 || Type == MenuItemType::Textarea );
     }
 };
 
@@ -134,30 +142,15 @@ public:
     // them fit on the screen as a result.
     int     RowHeight = FONT_HEIGHT;
 
-    // How many rows fit on the screen from the current scroll position. Rows
-    // are not all the same height -- only the ones carrying a picture take the
-    // tab's height -- so this counts them rather than dividing.
+    // How many rows the screen holds, counting every row as this tab's height.
     //
-    // It counts rows, not items: past the end of the list a row is the ordinary
-    // height. Stopping at the last item would answer "how many are left", and
-    // callers that subtract a row for a subtitle would then drop the last one.
+    // That is the worst case: a tab mixing rows that carry a picture with rows
+    // that do not fits one or two more than this. Answering for the worst case
+    // keeps it independent of where the list is scrolled to -- the count is
+    // used to decide the scrolling itself, so a count that moved with it would
+    // leave the selected row just off the bottom.
     int     VisibleItems() const {
-        const int available = MENU_HEIGHT * FONT_HEIGHT;
-        const int total = static_cast<int>(MenuItems.size());
-        int used = 0;
-        int count = 0;
-
-        for (int i = FirstItemIndex < 0 ? 0 : FirstItemIndex; ; i++) {
-            int height = i < total && MenuItems[i].PreviewSlot >= 0 ? RowHeight : FONT_HEIGHT;
-
-            if (used + height > available)
-                break;
-
-            used += height;
-            count++;
-        }
-
-        return count;
+        return MENU_HEIGHT * FONT_HEIGHT / RowHeight;
     }
     std::string SubTitle;
     std::string Title;
