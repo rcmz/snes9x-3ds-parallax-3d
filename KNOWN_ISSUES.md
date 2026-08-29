@@ -33,9 +33,10 @@ where it means to draw, so nothing outside it is read. A shifted slot therefore
 runs out at one edge of one eye, over a strip no wider than its own shift, and
 whatever sits behind it shows through there. Slots left at 0 keep their full
 width, so the cost falls on the slot that was moved rather than on the picture.
-Backgrounds carry the partial tile column that straddles each edge, which covers
-the first few pixels of that strip; sprites the game placed just off-screen are
-real and simply come into view.
+The strip is exactly as wide as the shift and straight down the frame: tile
+geometry is cut back to the screen before it is shifted, so neither the tile
+column that hangs over the edge nor a sprite the game parked just outside can be
+carried into view.
 
 Mode 7 encodes depth as a single bit rather than one of the interleaved slots,
 so its planes take no depth at all.

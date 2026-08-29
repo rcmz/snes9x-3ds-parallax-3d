@@ -467,11 +467,60 @@ inline void __attribute__((always_inline)) gpu3dsAddRectangleVertexes(s16 x0, s1
 }
 
 
+//---------------------------------------------------------
+// Cuts a tile quad back to the visible screen when a slot may
+// be shifted for stereo depth.
+//
+// Geometry outside the screen is normally thrown away by the
+// rasterizer, so the paths above are free to run a tile past the
+// edge. A shift moves that geometry sideways, which would carry
+// it into view -- and what a game keeps just outside the screen
+// is its own business. Worse, how far a tile hangs over the edge
+// depends on the layer's scroll, which HDMA can change from one
+// band of the frame to the next, so the strip a shifted slot
+// leaves would step in and out down the screen.
+//
+// Cut to the screen instead. The strip is then exactly as wide
+// as the slot's own shift, straight down the frame, and holds
+// whatever sits behind that slot.
+//---------------------------------------------------------
+static inline bool gpu3dsClipTileToScreen(s16 &x0, s16 &x1, s16 &tx0, s16 &tx1)
+{
+    s16 width = (s16)GPU3DSExt.renderWidth;
+
+    if (x0 >= 0 && x1 <= width)
+        return true;
+
+    if (x1 <= 0 || x0 >= width)
+        return false;
+
+    int dx = x1 - x0;
+    int dtx = tx1 - tx0;
+
+    // Rounded, because a quad does not always carry one texel per pixel: a
+    // mosaic block stretches a single texel over the whole block, and the
+    // hi-res tile path packs seven texels into four pixels.
+    if (x0 < 0) {
+        tx0 = (s16)(tx0 + (-x0 * dtx + dx / 2) / dx);
+        x0 = 0;
+    }
+
+    if (x1 > width) {
+        tx1 = (s16)(tx1 - ((x1 - width) * dtx + dx / 2) / dx);
+        x1 = width;
+    }
+
+    return true;
+}
+
 inline void __attribute__((always_inline)) gpu3dsAddTileVertexes(
     s16 x0, s16 y0, s16 x1, s16 y1,
     s16 tx0, s16 ty0, s16 tx1, s16 ty1,
     s16 z)
 {
+    if (GPU3DSExt.stereo.active && !gpu3dsClipTileToScreen(x0, x1, tx0, tx1))
+        return;
+
     SVertexList *list = &GPU3DS.vertices[VBO_SCENE_TILE];
     STileVertex *vertices = &((STileVertex *) list->data)[list->from + list->count];
 

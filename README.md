@@ -193,13 +193,12 @@ Notes:
   compositing rules (priorities, windows, colour math) stay exactly as they are
   in 2D. The SNES itself is emulated once per frame; what is repeated per eye is
   replaying the frame's vertices, and only while the 3D slider is open.
-* Each slot is drawn where the game drew it and nowhere else. Nothing is read
-  from outside the visible screen, since a game only keeps its tilemap valid
-  where it means to draw, so a slot with depth runs out at one edge of one eye
-  and lets whatever sits behind it show through, over a strip no wider than that
-  slot's own shift. A slot left at `0` keeps the full width whatever its
-  neighbours are set to, and a slot in front of the scene reveals only the scene
-  behind it.
+* Each slot is drawn where the game drew it and nowhere else: its geometry is
+  cut back to the visible screen before the shift moves it, so nothing the game
+  left outside the screen can be carried into view. A slot with depth therefore
+  runs out at one edge of one eye, over a strip exactly as wide as its own shift
+  and straight down the frame, and whatever sits behind it shows through there.
+  A slot left at `0` keeps the full width whatever its neighbours are set to.
 
 ## Setup
 
