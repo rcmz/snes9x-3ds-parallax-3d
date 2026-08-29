@@ -134,16 +134,21 @@ public:
     // them fit on the screen as a result.
     int     RowHeight = FONT_HEIGHT;
 
-    // How many rows fit from the current scroll position. Rows are not all the
-    // same height -- only the ones carrying a picture take the tab's height --
-    // so this counts them rather than dividing.
+    // How many rows fit on the screen from the current scroll position. Rows
+    // are not all the same height -- only the ones carrying a picture take the
+    // tab's height -- so this counts them rather than dividing.
+    //
+    // It counts rows, not items: past the end of the list a row is the ordinary
+    // height. Stopping at the last item would answer "how many are left", and
+    // callers that subtract a row for a subtitle would then drop the last one.
     int     VisibleItems() const {
         const int available = MENU_HEIGHT * FONT_HEIGHT;
+        const int total = static_cast<int>(MenuItems.size());
         int used = 0;
         int count = 0;
 
-        for (int i = FirstItemIndex < 0 ? 0 : FirstItemIndex; i < static_cast<int>(MenuItems.size()); i++) {
-            int height = MenuItems[i].PreviewSlot >= 0 ? RowHeight : FONT_HEIGHT;
+        for (int i = FirstItemIndex < 0 ? 0 : FirstItemIndex; ; i++) {
+            int height = i < total && MenuItems[i].PreviewSlot >= 0 ? RowHeight : FONT_HEIGHT;
 
             if (used + height > available)
                 break;
@@ -152,7 +157,7 @@ public:
             count++;
         }
 
-        return count > 0 ? count : 1;
+        return count;
     }
     std::string SubTitle;
     std::string Title;
