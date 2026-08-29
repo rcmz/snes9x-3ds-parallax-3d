@@ -6,7 +6,7 @@
 #define MENU_TAB_DIRTY_COUNT    5
 
 // Largest per-slot depth the UI allows, in SNES pixels of parallax.
-#define DEPTH3D_MAX     12
+#define DEPTH3D_MAX     11
 
 // Ceiling on the shift a slot can end up with once the 3D slider and the 3D
 // intensity setting have scaled its depth.
@@ -42,6 +42,17 @@ typedef enum {
 #include <array>
 #include <limits.h>
 #include <3ds.h>
+
+// Where a slot sits in the frame the given background mode composites: the
+// SNES depth it is drawn at, rear-most first, or -1 when the mode has no such
+// plane. bg3Priority is the "BG3 highest priority" bit of $2105, which only
+// means anything in mode 1.
+int depth3dSlotDepth(int bgMode, bool bg3Priority, int slot);
+
+// Fills order[] with every slot, the ones the mode composites first and in
+// front-to-rear order, the rest after them. Returns how many of them the mode
+// actually composites.
+int depth3dSlotOrder(int bgMode, bool bg3Priority, u8 order[DEPTH3D_SLOT_COUNT]);
 
 #ifndef VERSION_MAJOR
 #define VERSION_MAJOR 0

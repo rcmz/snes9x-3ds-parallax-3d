@@ -768,7 +768,36 @@ const std::vector<SMenuItem>& makeOptionsForScreenFilter() {
 // its own control, because a game can put unrelated things on
 // the same plane -- Super Metroid's BG3 carries the interface
 // and the rain -- and only the priority tells them apart.
+//
+// The list follows the order the current background mode
+// composites those slots, front-most first, so it reads like the
+// stack of planes it is setting the depth of. Which slots a mode
+// has, and where they fall in that stack, both change with the
+// mode; their names do not.
 //---------------------------------------------------------
+static const char *depth3dSlotName(int slot) {
+    static const char *names[DEPTH3D_SLOT_COUNT] = {
+        "  BG1 prio 0", "  BG1 prio 1",
+        "  BG2 prio 0", "  BG2 prio 1",
+        "  BG3 prio 0", "  BG3 prio 1",
+        "  BG4 prio 0", "  BG4 prio 1",
+        "  OBJ prio 0", "  OBJ prio 1", "  OBJ prio 2", "  OBJ prio 3",
+    };
+
+    return names[slot];
+}
+
+static void addDepth3DSlotGauge(std::vector<SMenuItem>& items, int slot, bool dimmed) {
+    AddMenuGauge(items, depth3dSlotName(slot), -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[slot],
+        [slot]( int val ) {
+            if (CheckAndUpdate(settings3DS.Depth3D[slot], (s8)val))
+                menu3dsSetScreenDirty();
+        }, true);
+
+    items.back().Dimmed = dimmed;
+    items.back().PreviewSlot = slot;
+}
+
 void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     items.clear();
 
@@ -811,39 +840,47 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         return;
     }
 
-    static const char *slotNames[DEPTH3D_SLOT_COUNT] = {
-        "  BG1 prio 0", "  BG1 prio 1",
-        "  BG2 prio 0", "  BG2 prio 1",
-        "  BG3 prio 0", "  BG3 prio 1",
-        "  BG4 prio 0", "  BG4 prio 1",
-        "  OBJ prio 0", "  OBJ prio 1", "  OBJ prio 2", "  OBJ prio 3",
-    };
+    // What the game was drawing when it stopped. A game is free to change mode
+    // while the menu is closed, and even part-way down a frame, so this is the
+    // mode of the last thing it drew rather than a property of the game.
+    int bgMode = PPU.BGMode;
+    bool bg3Priority = PPU.BG3Priority;
 
-    AddMenuDisabledOption(items, ""_s);
-    AddMenuHeader2(items, "Backgrounds"_s);
+    u8 order[DEPTH3D_SLOT_COUNT];
+    int composited = depth3dSlotOrder(bgMode, bg3Priority, order);
 
-    for (int slot = DEPTH3D_BG1_PRIO0; slot <= DEPTH3D_BG4_PRIO1; slot++) {
-        AddMenuGauge(items, slotNames[slot], -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[slot],
-            [slot]( int val ) {
-                if (CheckAndUpdate(settings3DS.Depth3D[slot], (s8)val))
-                    menu3dsSetScreenDirty();
-            }, true);
+    char modeText[64];
+
+    if (bgMode == 7) {
+        snprintf(modeText, sizeof(modeText), "  Mode 7 - only sprites take depth");
+    } else if (bgMode == 1 && bg3Priority) {
+        snprintf(modeText, sizeof(modeText), "  Mode %d - BG3 prio 1 in front", bgMode);
+    } else {
+        snprintf(modeText, sizeof(modeText), "  Mode %d", bgMode);
     }
 
     AddMenuDisabledOption(items, ""_s);
-    AddMenuHeader2(items, "Sprites"_s);
+    AddMenuHeader2(items, "Front to back"_s);
+    AddMenuDisabledOption(items, modeText);
 
-    for (int slot = DEPTH3D_OBJ_PRIO0; slot <= DEPTH3D_OBJ_PRIO3; slot++) {
-        AddMenuGauge(items, slotNames[slot], -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[slot],
-            [slot]( int val ) {
-                if (CheckAndUpdate(settings3DS.Depth3D[slot], (s8)val))
-                    menu3dsSetScreenDirty();
-            }, true);
+    for (int i = 0; i < composited; i++)
+        addDepth3DSlotGauge(items, order[i], false);
+
+    if (composited < DEPTH3D_SLOT_COUNT) {
+        char unusedText[64];
+        snprintf(unusedText, sizeof(unusedText), "Not drawn in mode %d", bgMode);
+
+        AddMenuDisabledOption(items, ""_s);
+        AddMenuHeader2(items, unusedText);
+
+        for (int i = composited; i < DEPTH3D_SLOT_COUNT; i++)
+            addDepth3DSlotGauge(items, order[i], true);
     }
 
     AddMenuDisabledOption(items, ""_s);
     items.emplace_back(nullptr, MenuItemType::Textarea, "  0 = at the screen, higher = further back."_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  Pause in-game to preview while adjusting."_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  The preview beside each slider is what that slot"_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  alone holds in the frame behind this menu."_s, ""_s);
     AddMenuDisabledOption(items, ""_s);
     items.emplace_back(nullptr, MenuItemType::Textarea, "  A background holds one tile per cell, so splitting its"_s, ""_s);
     items.emplace_back(nullptr, MenuItemType::Textarea, "  two priorities tears any surface they tile together:"_s, ""_s);

@@ -3367,6 +3367,11 @@ void S9xRenderScreenHardware (bool8 sub)
 		S9xDrawOBJSHardware(sub, bgAlpha[LAYER_OBJ], 0);
 	}
 
+    // The depths passed below are the manual's appendix A-19 order, with the
+    // sprite priorities interleaved at 3, 6, 9 and 12. depth3dSlotDepth()
+    // (3dssettings.cpp) mirrors this table so the 3D depth menu can list the
+    // slots in the order the current mode composites them -- keep the two in
+    // step.
     switch (PPU.BGMode) {
         case 0:
 			DRAW_4COLOR_BG_INLINE(0, 0, 8, 11);
