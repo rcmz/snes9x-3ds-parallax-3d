@@ -631,6 +631,17 @@ std::vector<SMenuItem> makeOptionsForStretch() {
     return items;
 }
 
+std::vector<SMenuItem> makeOptionsForDepth3DEdges() {
+    std::vector<SMenuItem> items;
+    items.reserve(3);
+
+    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::Layer), "Per layer"_s,       "Crop layers individually"_s);
+    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::Frame), "Whole frame"_s,     "Crop all layers by the max amount"_s);
+    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::None), "None"_s,             "Use off-screen tiles"_s);
+
+    return items;
+}
+
 std::vector<SMenuItem> makeOptionsForEnhancedResolution() {
     std::vector<SMenuItem> items;
     items.reserve(3);
@@ -864,7 +875,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         // Three lines is what the dialog has room for, and each has to fit a
         // line on its own or it wraps and pushes the rest off the bottom.
         "How to crop shifted layer edges."_s,
-        makePickerOptions({"Per layer (crop layers individually)", "Whole frame (crop all layers by the max amount)", "None (use off-screen tiles)"}),
+        makeOptionsForDepth3DEdges(),
         static_cast<int>(settings3DS.Depth3DEdges), DIALOG_TYPE_INFO, true,
         []( int val ) {
             if (CheckAndUpdate(settings3DS.Depth3DEdges, static_cast<Setting::Depth3DEdges>(val))) {
