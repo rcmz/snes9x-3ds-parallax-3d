@@ -9,6 +9,16 @@
 #
 # Mouse clicks are avoided on purpose: clicking the render widget makes Azahar
 # stop receiving X key events on this headless setup.
+#
+# Key presses never reach the guest's own pause menu here, so a menu screen
+# cannot be reached by driving it. Build with AUTO_OPEN_TAB set to the tab index
+# instead and the emulator opens that tab by itself once a frame has been drawn:
+#
+#   make 3dsx AUTO_OPEN_TAB=2 AUTO_OPEN_FRAME=2400   # 3D Depth, ~40s in
+#
+# AUTO_OPEN_FRAME is a floor, not an exact frame: the menu waits for a frame the
+# emulator actually drew, because pausing on a skipped one leaves no geometry
+# behind and the game screen comes up black.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

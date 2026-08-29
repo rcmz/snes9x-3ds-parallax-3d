@@ -78,7 +78,14 @@ ifeq ($(STRICT_WARNINGS),1)
 WARNINGS += -Werror
 endif
 
-COMMON      := $(OPT_FLAGS) $(WARNINGS) -mword-relocations -fomit-frame-pointer -ffunction-sections -DVERSION_MAJOR=$(APP_VERSION_MAJOR) -DVERSION_MINOR=$(APP_VERSION_MINOR) -DVERSION_MICRO=$(APP_VERSION_MICRO) $(ARCH) $(INCLUDE) -D__3DS__
+# Opens the pause menu on the given tab a few seconds after a game starts, so a
+# menu screen can be captured on a setup where key presses do not reach the
+# guest. Test builds only: make 3dsx AUTO_OPEN_TAB=2
+ifneq ($(AUTO_OPEN_TAB),)
+AUTOTEST := -DAUTO_OPEN_TAB=$(AUTO_OPEN_TAB) -DAUTO_OPEN_FRAME=$(or $(AUTO_OPEN_FRAME),300)
+endif
+
+COMMON      := $(OPT_FLAGS) $(WARNINGS) $(AUTOTEST) -mword-relocations -fomit-frame-pointer -ffunction-sections -DVERSION_MAJOR=$(APP_VERSION_MAJOR) -DVERSION_MINOR=$(APP_VERSION_MINOR) -DVERSION_MICRO=$(APP_VERSION_MICRO) $(ARCH) $(INCLUDE) -D__3DS__
 CFLAGS      := $(COMMON) -std=gnu99
 CXXFLAGS    := $(COMMON) -fno-rtti -fno-exceptions -std=gnu++17
 ASFLAGS     := $(ARCH)

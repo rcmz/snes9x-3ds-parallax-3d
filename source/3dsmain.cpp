@@ -2341,6 +2341,17 @@ void emulatorLoop()
         impl3dsRunOneFrame(firstFrame, skipDrawing);
         t3dsStopTimer(TIMER_RUN_ONE_FRAME);
 
+#ifdef AUTO_OPEN_TAB
+        // Test builds only: opens the menu on one tab by itself, for capturing
+        // menu screens where key presses cannot reach the guest.
+        // Only on a frame that was actually drawn: pausing on a skipped frame
+        // leaves no geometry behind for the menu to replay.
+        if (totalFrames >= AUTO_OPEN_FRAME && GPU3DSExt.layerList.verticesTotal > 100) {
+            menu3dsSetLastSelectedTabIndex(AUTO_OPEN_TAB);
+            GPU3DS.emulatorState = EMUSTATE_PAUSEMENU;
+        }
+#endif
+
 
         long actualTicksThisFrame = (long)(svcGetSystemTick() - startFrameTick);
         skipDrawing = paceFrame(actualTicksThisFrame, totalFrames, snesFrameTotalActualTicks, snesFrameTotalAccurateTicks, snesFramesSkipped);
