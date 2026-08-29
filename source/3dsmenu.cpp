@@ -242,7 +242,7 @@ static void menu3dsDrawColumnedLabel(const char *text, int x, int y, int height,
 }
 
 void menu3dsDrawItems(
-    SMenuTab *currentTab, int horizontalPadding, int menuStartY, int maxItems,
+    SMenuTab *currentTab, int horizontalPadding, int menuStartY, int availableHeight,
     int selectedItemBackColor,
     int selectedItemTextColor, 
     int selectedItemDescriptionTextColor,
@@ -263,7 +263,7 @@ void menu3dsDrawItems(
     // Display the subtitle
     if (!currentTab->SubTitle.empty())
     {
-        maxItems--;
+        availableHeight -= fontHeight;
         ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, menuStartY, settings3DS.SecondScreenWidth - horizontalPadding, menuStartY + fontHeight, 
             subtitleTextColor, HALIGN_LEFT, currentTab->SubTitle.c_str());
         ui3dsDrawRect(horizontalPadding, menuStartY + fontHeight - 1, settings3DS.SecondScreenWidth - horizontalPadding, menuStartY + fontHeight, subtitleTextColor);
@@ -273,18 +273,27 @@ void menu3dsDrawItems(
     int rowY = menuStartY;
     int color = Themes[static_cast<int>(settings3DS.Theme)].selectedTabTextColor;
 
+    // How many rows were drawn. Rows are not all the same height, so it is the
+    // room left that decides what fits, not a count of items: a tab whose short
+    // rows sit above its tall ones holds more of them than the worst case the
+    // scrolling is sized for, and counting items instead left that room empty
+    // at the bottom of the list.
+    int drawnItems = 0;
+
     // Draw all the individual items
     //
     for (int i = currentTab->FirstItemIndex;
-         i < static_cast<int>(currentTab->MenuItems.size()) && i < (currentTab->FirstItemIndex + maxItems); i++)
+         i < static_cast<int>(currentTab->MenuItems.size()); i++)
     {
         // Only the rows carrying a picture need the height for it; a heading or
         // a line of text in the same tab stays the size it reads best at, and
         // leaves the room to the sliders.
         int thisRowHeight = currentTab->MenuItems[i].PreviewSlot >= 0 ? rowHeight : fontHeight;
 
-        if (rowY + thisRowHeight > menuStartY + MENU_HEIGHT * fontHeight)
+        if (rowY + thisRowHeight > menuStartY + availableHeight)
             break;
+
+        drawnItems++;
 
         // A row taller than its text keeps the text in the middle of it.
         int y = rowY + (thisRowHeight - fontHeight) / 2;
@@ -464,9 +473,11 @@ void menu3dsDrawItems(
 
     // Draw the "down arrow" to indicate more options available at bottom
     //
-    if (settings3DS.Theme == Setting::Theme::Original && currentTab->FirstItemIndex + maxItems < static_cast<int>(currentTab->MenuItems.size()))
+    if (settings3DS.Theme == Setting::Theme::Original && currentTab->FirstItemIndex + drawnItems < static_cast<int>(currentTab->MenuItems.size()))
     {
-        ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, settings3DS.SecondScreenWidth - horizontalPadding, menuStartY + (maxItems - 1) * rowHeight, settings3DS.SecondScreenWidth, menuStartY + maxItems * rowHeight, disabledItemTextColor, HALIGN_CENTER, "\xf9");
+        // rowY has passed the last row drawn, so this sits on the end of it
+        // whatever mix of heights got the list there.
+        ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, settings3DS.SecondScreenWidth - horizontalPadding, rowY - fontHeight, settings3DS.SecondScreenWidth, rowY, disabledItemTextColor, HALIGN_CENTER, "\xf9");
     }
     
 }
@@ -612,7 +623,6 @@ void menu3dsDrawMenu(std::vector<SMenuTab>& menuTabs, int& currentMenuTab, int m
     const int rightEdge = battX2 - battFullLevelWidth - battBorderWidth - 6;
     ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, 97, SCREEN_HEIGHT - 17, rightEdge, SCREEN_HEIGHT, Themes[static_cast<int>(settings3DS.Theme)].menuBottomBarTextColor, HALIGN_RIGHT, settings3dsGetAppVersion("v", GPU3DS.isReal3DS ? "" : "e"));
     
-    int maxItems = currentTab->VisibleItems();
     int menuStartY = 29;
 
     int menuBackColor = Themes[static_cast<int>(settings3DS.Theme)].menuBackColor;
@@ -623,7 +633,7 @@ void menu3dsDrawMenu(std::vector<SMenuTab>& menuTabs, int& currentMenuTab, int m
     if (menuItemFrame == 0)
     {
         menu3dsDrawItems(
-            currentTab, 20, menuStartY, maxItems,
+            currentTab, 20, menuStartY, MENU_HEIGHT * FONT_HEIGHT,
             selectedItemBackColor,
             Themes[static_cast<int>(settings3DS.Theme)].selectedItemTextColor,
             Themes[static_cast<int>(settings3DS.Theme)].selectedItemDescriptionTextColor,
@@ -667,7 +677,7 @@ void menu3dsDrawMenu(std::vector<SMenuTab>& menuTabs, int& currentMenuTab, int m
         int menuBackColorAlpha = ui3dsApplyAlphaToColor(menuBackColor, 1.0f - alpha);
         
          menu3dsDrawItems(
-            currentTab, 20, menuStartY, maxItems,
+            currentTab, 20, menuStartY, MENU_HEIGHT * FONT_HEIGHT,
             selectedItemBackColor != -1 ? ui3dsApplyAlphaToColor(selectedItemBackColor, alpha) + menuBackColorAlpha : selectedItemBackColor,
             ui3dsApplyAlphaToColor(Themes[static_cast<int>(settings3DS.Theme)].selectedItemTextColor, alpha) + menuBackColorAlpha,
             ui3dsApplyAlphaToColor(Themes[static_cast<int>(settings3DS.Theme)].selectedItemDescriptionTextColor, alpha) + menuBackColorAlpha,
@@ -725,7 +735,7 @@ void menu3dsDrawDialog(SMenuTab& dialogTab)
 
     int menuStartY = topHeight + (settings3DS.Theme == Setting::Theme::RetroArch ? 9 : 11);
     menu3dsDrawItems(
-        &dialogTab, horizontalPadding, menuStartY, menu3dsGetDialogVisibleItems(),
+        &dialogTab, horizontalPadding, menuStartY, menu3dsGetDialogVisibleItems() * FONT_HEIGHT,
         dialogSelectedItemBackColor,
         Themes[static_cast<int>(settings3DS.Theme)].selectedItemTextColor,
         dialogItemDescriptionTextColor,

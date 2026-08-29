@@ -143,12 +143,15 @@ public:
     int     RowHeight = FONT_HEIGHT;
 
     // How many rows the screen holds, counting every row as this tab's height.
+    // This is what the scrolling is sized by; the drawing fits what it can into
+    // the room it has and can show more.
     //
     // That is the worst case: a tab mixing rows that carry a picture with rows
     // that do not fits one or two more than this. Answering for the worst case
     // keeps it independent of where the list is scrolled to -- the count is
     // used to decide the scrolling itself, so a count that moved with it would
-    // leave the selected row just off the bottom.
+    // leave the selected row just off the bottom. Erring low is safe: every row
+    // it counts is drawn, since none of them is taller than it assumed.
     int     VisibleItems() const {
         return MENU_HEIGHT * FONT_HEIGHT / RowHeight;
     }
