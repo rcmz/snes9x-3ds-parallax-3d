@@ -74,7 +74,12 @@ float gpu3dsGetIODBase()
 
 //---------------------------------------------------------
 // Scale applied to the per-game plane depths: the physical 3D
-// slider position times the user's 3D intensity preference.
+// slider position, and nothing else. The 3D Intensity setting is
+// deliberately left out -- it scales the depth of the border art
+// behind the game screen, and the per-slot depths are already an
+// absolute number of pixels the user dialled in for that game, so
+// a second multiplier on top would only make those numbers mean
+// something different from one setting to the next.
 // Returns 0 when the top screen is not in 3D mode.
 //---------------------------------------------------------
 float gpu3dsGetLayerDepthStrength()
@@ -82,14 +87,7 @@ float gpu3dsGetLayerDepthStrength()
     if (GPU3DS.topMode != TOP_MODE_3D)
         return 0.0f;
 
-    float intensity = 1.0f;
-
-    if (settings3DS.Intensity3D == Setting::Intensity3D::High)
-        intensity = 2.0f;
-    else if (settings3DS.Intensity3D == Setting::Intensity3D::Medium)
-        intensity = 1.5f;
-
-    return osGet3DSliderState() * intensity;
+    return osGet3DSliderState();
 }
 
 bool gpu3dsIs3DAvailable()

@@ -206,8 +206,9 @@ and no "press START" over it -- since it is the thing being judged.
 
 Notes:
 
-* The physical 3D slider still scales the whole effect, and the existing
-  **3D Intensity** setting scales it further.
+* The physical 3D slider still scales the whole effect. The **3D Intensity**
+  setting does not: it applies to the border art behind the game screen, and
+  a depth set here stays worth the pixels it says whatever that is set to.
 * The backdrop fills the screen, so it has no depth of its own and is always
   furthest back.
 * The feature needs the 3D screen, so it is unavailable on 2DS models, and it
