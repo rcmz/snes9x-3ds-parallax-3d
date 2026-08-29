@@ -1822,7 +1822,7 @@ void updateFileMenuTab(const char *selectedItemName, bool showCachingIndicator, 
     if (firstItemIndex >= 0) {
         fileMenuTab.FirstItemIndex = firstItemIndex;
     }
-    fileMenuTab.MakeSureSelectionIsOnScreen(MENU_HEIGHT, 2);
+    fileMenuTab.MakeSureSelectionIsOnScreen(fileMenuTab.VisibleItems(), 2);
 }
 
 void setupMenu(int& currentMenuTab) {
@@ -1850,6 +1850,10 @@ void setupMenu(int& currentMenuTab) {
 
             menuTabs[i].SetTitle(tabs[i]);
             menuTabs[i].SubTitle.clear();
+
+            // The depth tab carries a picture in every row, so its rows are
+            // twice as tall and fewer of them fit on the screen.
+            menuTabs[i].RowHeight = i == TAB_DEPTH3D ? FONT_HEIGHT * 2 : FONT_HEIGHT;
 
             switch (i) {
                 case TAB_EMULATOR:
@@ -1883,7 +1887,14 @@ void setupMenu(int& currentMenuTab) {
                 }
             }
 
-            menuTabs[i].MakeSureSelectionIsOnScreen(MENU_HEIGHT, 2);
+#ifdef AUTO_OPEN_ROW
+            // Test builds only: parks the cursor on a given row, so a screen
+            // further down a tab than its first page can be captured.
+            if (i == AUTO_OPEN_TAB && AUTO_OPEN_ROW < static_cast<int>(menuTabs[i].MenuItems.size()))
+                menuTabs[i].SelectedItemIndex = AUTO_OPEN_ROW;
+#endif
+
+            menuTabs[i].MakeSureSelectionIsOnScreen(menuTabs[i].VisibleItems(), 2);
         } else {
             // file tab is expensive and content is layout-/navigation-driven, not ROM-driven
             if (!requiredTabsChanged)

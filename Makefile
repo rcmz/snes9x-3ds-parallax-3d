@@ -83,6 +83,9 @@ endif
 # guest. Test builds only: make 3dsx AUTO_OPEN_TAB=2
 ifneq ($(AUTO_OPEN_TAB),)
 AUTOTEST := -DAUTO_OPEN_TAB=$(AUTO_OPEN_TAB) -DAUTO_OPEN_FRAME=$(or $(AUTO_OPEN_FRAME),300)
+ifneq ($(AUTO_OPEN_ROW),)
+AUTOTEST += -DAUTO_OPEN_ROW=$(AUTO_OPEN_ROW)
+endif
 endif
 
 COMMON      := $(OPT_FLAGS) $(WARNINGS) $(AUTOTEST) -mword-relocations -fomit-frame-pointer -ffunction-sections -DVERSION_MAJOR=$(APP_VERSION_MAJOR) -DVERSION_MINOR=$(APP_VERSION_MINOR) -DVERSION_MICRO=$(APP_VERSION_MICRO) $(ARCH) $(INCLUDE) -D__3DS__

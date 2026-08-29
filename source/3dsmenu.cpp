@@ -199,6 +199,38 @@ bool menu3dsHasHighlightableItems(SMenuTab *currentTab) {
     return hasSelectableItems;
 }
 
+//---------------------------------------------------------
+// Draws a row label whose tab-separated parts sit in fixed
+// columns, so the same part of every label lines up down the
+// list instead of following the width of the text before it.
+//---------------------------------------------------------
+static void menu3dsDrawColumnedLabel(const char *text, int x, int y, int height, int color)
+{
+    // Widths come from the font in use, so the columns hold whichever one the
+    // menu is set to. The strings are the widest each column has to carry.
+    const int columnGap = 5;
+    int columnX[4];
+
+    columnX[0] = x;
+    columnX[1] = columnX[0] + ui3dsGetStringWidth("BG3") + columnGap;
+    columnX[2] = columnX[1] + ui3dsGetStringWidth("prio") + columnGap;
+    columnX[3] = columnX[2] + ui3dsGetStringWidth("0") + columnGap;
+
+    const char *from = text;
+    int column = 0;
+
+    while (from && column < 4) {
+        const char *tab = strchr(from, '\t');
+        std::string part = tab ? std::string(from, tab - from) : std::string(from);
+
+        ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, columnX[column], y,
+            settings3DS.SecondScreenWidth, y + height, color, HALIGN_LEFT, part.c_str());
+
+        from = tab ? tab + 1 : nullptr;
+        column++;
+    }
+}
+
 void menu3dsDrawItems(
     SMenuTab *currentTab, int horizontalPadding, int menuStartY, int maxItems,
     int selectedItemBackColor,
@@ -212,6 +244,7 @@ void menu3dsDrawItems(
     int offsetX = 0)
 {
     int fontHeight = 13;
+    int rowHeight = currentTab->RowHeight;
 
     // Where a row's slot preview goes: clear of the longest slot name, and clear
     // of the value and the gauge on the right.
@@ -227,7 +260,7 @@ void menu3dsDrawItems(
         menuStartY += fontHeight;
     }
 
-    int line = 0;
+    int rowY = menuStartY;
     int color = Themes[static_cast<int>(settings3DS.Theme)].selectedTabTextColor;
 
     // Draw all the individual items
@@ -235,14 +268,23 @@ void menu3dsDrawItems(
     for (int i = currentTab->FirstItemIndex;
          i < static_cast<int>(currentTab->MenuItems.size()) && i < (currentTab->FirstItemIndex + maxItems); i++)
     {
-        int y = line * fontHeight + menuStartY;
+        // Only the rows carrying a picture need the height for it; a heading or
+        // a line of text in the same tab stays the size it reads best at, and
+        // leaves the room to the sliders.
+        int thisRowHeight = currentTab->MenuItems[i].PreviewSlot >= 0 ? rowHeight : fontHeight;
+
+        if (rowY + thisRowHeight > menuStartY + MENU_HEIGHT * fontHeight)
+            break;
+
+        // A row taller than its text keeps the text in the middle of it.
+        int y = rowY + (thisRowHeight - fontHeight) / 2;
 
         // Draw the selected background 
         //
         if (currentTab->SelectedItemIndex == i)
         {
             if (selectedItemBackColor != -1) {
-                ui3dsDrawRect(0, y, settings3DS.SecondScreenWidth, y + 14, selectedItemBackColor);                
+                ui3dsDrawRect(0, rowY, settings3DS.SecondScreenWidth, rowY + thisRowHeight, selectedItemBackColor);                
             }
 
             if (settings3DS.Theme == Setting::Theme::RetroArch && currentTab->MenuItems[i].IsHighlightable()) {
@@ -322,14 +364,21 @@ void menu3dsDrawItems(
 
         else if (currentTab->MenuItems[i].Type == MenuItemType::Gauge)
         {
-            color = currentTab->MenuItems[i].Dimmed ? disabledItemTextColor : normalItemTextColor;
-            if (currentTab->SelectedItemIndex == i)
-                color = selectedItemTextColor;
+            // An inactive row keeps the disabled colour even under the cursor:
+            // the highlight already says what is selected, and losing the
+            // colour there would hide whether the slot is in use.
+            color = currentTab->MenuItems[i].Dimmed
+                ? disabledItemTextColor
+                : (currentTab->SelectedItemIndex == i ? selectedItemTextColor : normalItemTextColor);
 
-            ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, settings3DS.SecondScreenWidth - horizontalPadding, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
+            if (currentTab->MenuItems[i].Text.find('\t') != std::string::npos)
+                menu3dsDrawColumnedLabel(currentTab->MenuItems[i].Text.c_str(), horizontalPadding, y, fontHeight, color);
+            else
+                ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, settings3DS.SecondScreenWidth - horizontalPadding, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
 
             if (currentTab->MenuItems[i].PreviewSlot >= 0)
-                menu3dsDrawSlotPreview(currentTab->MenuItems[i].PreviewSlot, previewX, y);
+                menu3dsDrawSlotPreview(currentTab->MenuItems[i].PreviewSlot, previewX,
+                    rowY + (thisRowHeight - DEPTH3D_PREVIEW_HEIGHT - 2) / 2);
 
             const int max = 40;
             int diff = currentTab->MenuItems[i].GaugeMaxValue - currentTab->MenuItems[i].GaugeMinValue;
@@ -379,7 +428,7 @@ void menu3dsDrawItems(
             }
         }
 
-        line ++;
+        rowY += thisRowHeight;
     }
 
 
@@ -540,7 +589,7 @@ void menu3dsDrawMenu(std::vector<SMenuTab>& menuTabs, int& currentMenuTab, int m
     const int rightEdge = battX2 - battFullLevelWidth - battBorderWidth - 6;
     ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, 97, SCREEN_HEIGHT - 17, rightEdge, SCREEN_HEIGHT, Themes[static_cast<int>(settings3DS.Theme)].menuBottomBarTextColor, HALIGN_RIGHT, settings3dsGetAppVersion("v", GPU3DS.isReal3DS ? "" : "e"));
     
-    int maxItems = MENU_HEIGHT;
+    int maxItems = currentTab->VisibleItems();
     int menuStartY = 29;
 
     int menuBackColor = Themes[static_cast<int>(settings3DS.Theme)].menuBackColor;
@@ -878,7 +927,7 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
         firstFrame = false;
         lastKeysHeld = thisKeysHeld;
 
-        int maxItems = MENU_HEIGHT;
+        int maxItems = currentTab->VisibleItems();
         if (isDialog)
             maxItems = menu3dsGetDialogVisibleItems();
 
@@ -920,7 +969,7 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
                 for (size_t i = 0; i < currentTab->MenuItems.size(); i++) {
                     if (currentTab->MenuItems[i].IsHighlightable()) {
                         currentTab->SelectedItemIndex = static_cast<int>(i);
-                        currentTab->MakeSureSelectionIsOnScreen(MENU_HEIGHT, 2);
+                        currentTab->MakeSureSelectionIsOnScreen(currentTab->VisibleItems(), 2);
 
                         break;
                     }
@@ -1273,7 +1322,7 @@ void menu3dsAddTab(std::vector<SMenuTab>& menuTabs, const char *title, const std
         if (menuItems[i].IsHighlightable())
         {
             currentTab->SelectedItemIndex = static_cast<int>(i);
-            currentTab->MakeSureSelectionIsOnScreen(MENU_HEIGHT, 2);
+            currentTab->MakeSureSelectionIsOnScreen(currentTab->VisibleItems(), 2);
             break;
         }
     }
@@ -1281,7 +1330,7 @@ void menu3dsAddTab(std::vector<SMenuTab>& menuTabs, const char *title, const std
 
 void menu3dsSelectRandomGameIndex(SMenuTab& currentTab, int min, int max, int lastSelected) {
     currentTab.SelectedItemIndex = utils3dsGetRandomInt(min, max, lastSelected);
-    currentTab.MakeSureSelectionIsOnScreen(MENU_HEIGHT, 2);
+    currentTab.MakeSureSelectionIsOnScreen(currentTab.VisibleItems(), 2);
     currentTab.MenuItems[currentTab.SelectedItemIndex].SetValue(1);
 }
 

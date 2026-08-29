@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "3dsui.h"
 #include "3dsthemes.h"
 #include "3dssettings.h"
 
@@ -127,6 +128,15 @@ public:
 class SMenuTab {
 public:
     std::vector<SMenuItem> MenuItems;
+
+    // Height of one row. A tab that shows more than text in a row -- the 3D
+    // depth tab and its slot previews -- asks for taller ones, and fewer of
+    // them fit on the screen as a result.
+    int     RowHeight = FONT_HEIGHT;
+
+    int     VisibleItems() const {
+        return MENU_HEIGHT * FONT_HEIGHT / RowHeight;
+    }
     std::string SubTitle;
     std::string Title;
     std::string DialogText;

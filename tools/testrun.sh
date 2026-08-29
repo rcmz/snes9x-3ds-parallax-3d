@@ -18,7 +18,14 @@
 #
 # AUTO_OPEN_FRAME is a floor, not an exact frame: the menu waits for a frame the
 # emulator actually drew, because pausing on a skipped one leaves no geometry
-# behind and the game screen comes up black.
+# behind and the game screen comes up black. Mode 7 draws no tile geometry at
+# all, so the hook will not fire on a screen that is entirely Mode 7.
+#
+# AUTO_OPEN_ROW parks the cursor on a row, for capturing further down a tab than
+# its first page.
+#
+# make does not rebuild on a -D change, so touch the source when only these
+# values change: touch source/3dsmain.cpp
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
