@@ -1316,26 +1316,29 @@ bool impl3dsCaptureDepthSlotPreviews(u16 *tiles)
 			for (int x = 0; x < tileWidth; x++) {
 				int sx0 = screenshot.x + x * srcWidth / tileWidth;
 				int sx1 = screenshot.x + (x + 1) * srcWidth / tileWidth;
-				int r = 0, g = 0, b = 0, n = 0;
+				int r = 0, g = 0, b = 0, brightest = -1;
 
+				// The brightest pixel of each block rather than their average.
+				// A slot is often something sparse on nothing -- rain, a HUD,
+				// a handful of sprites -- and averaging a hundred pixels of
+				// black with two of white leaves black, which reads as an
+				// empty slot. This keeps sparse content visible, at the cost
+				// of showing the layer brighter than it really is.
 				for (int sx = sx0; sx < sx1; sx++) {
 					const u8 *column = fb + sx * stride;
 
 					for (int sy = sy0; sy < sy1; sy++) {
 						const u8 *src = column + (SCREEN_HEIGHT - 1 - sy) * bpp;
+						int luminance = src[2] * 2 + src[1] * 3 + src[0];
 
-						b += src[0];
-						g += src[1];
-						r += src[2];
-						n++;
+						if (luminance > brightest) {
+							brightest = luminance;
+							b = src[0];
+							g = src[1];
+							r = src[2];
+						}
 					}
 				}
-
-				if (!n) n = 1;
-
-				r /= n;
-				g /= n;
-				b /= n;
 
 				tile[y * tileWidth + x] = (u16)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
 			}

@@ -184,10 +184,10 @@ void impl3dsClearTopFramebuffers();
 
 void impl3dsSceneRender(bool firstFrame, bool paused = false, bool pausedOverlay = true);
 
-// Size of one slot preview in the 3D depth menu. A menu row is 13 pixels tall,
-// which leaves room for this and a one-pixel frame around it.
-#define DEPTH3D_PREVIEW_WIDTH   12
-#define DEPTH3D_PREVIEW_HEIGHT  10
+// Size of one slot preview in the 3D depth menu. The tab asks for rows twice
+// the usual 13 pixels so there is room for this and a one-pixel frame.
+#define DEPTH3D_PREVIEW_WIDTH   24
+#define DEPTH3D_PREVIEW_HEIGHT  20
 
 // Renders the paused frame once per depth slot with every other slot held back,
 // and averages each one down into tiles[], which must hold

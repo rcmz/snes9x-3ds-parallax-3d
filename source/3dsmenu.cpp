@@ -443,7 +443,7 @@ void menu3dsDrawItems(
     //
     if (settings3DS.Theme == Setting::Theme::Original && currentTab->FirstItemIndex + maxItems < static_cast<int>(currentTab->MenuItems.size()))
     {
-        ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, settings3DS.SecondScreenWidth - horizontalPadding, menuStartY + (maxItems - 1) * fontHeight, settings3DS.SecondScreenWidth, menuStartY + maxItems * fontHeight, disabledItemTextColor, HALIGN_CENTER, "\xf9");
+        ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, settings3DS.SecondScreenWidth - horizontalPadding, menuStartY + (maxItems - 1) * rowHeight, settings3DS.SecondScreenWidth, menuStartY + maxItems * rowHeight, disabledItemTextColor, HALIGN_CENTER, "\xf9");
     }
     
 }

@@ -338,8 +338,16 @@ static inline void gpu3dsMapPlaneDepthSlots(int bg, int slot0, int slot1)
     if (slot0 >= 0 && slot0 < SNES_DEPTH_SLOTS)
         stereo->depthSlotSource[slot0] = (s8)DEPTH3D_BG_SLOT(bg, 0);
 
-    if (slot1 >= 0 && slot1 < SNES_DEPTH_SLOTS)
-        stereo->depthSlotSource[slot1] = (s8)DEPTH3D_BG_SLOT(bg, 1);
+    if (slot1 >= 0 && slot1 < SNES_DEPTH_SLOTS) {
+        // Depth 13 is BG3's high priority lifted to the front of the frame by
+        // $2105 bit 3, which is a different place in the stack holding
+        // different content, so it draws its depth from its own setting. A
+        // frame that flips the bit part-way down has both, and each band then
+        // gets the depth that belongs to it.
+        stereo->depthSlotSource[slot1] = (s8)(slot1 == 13
+            ? DEPTH3D_BG3_PRIO1_FRONT
+            : DEPTH3D_BG_SLOT(bg, 1));
+    }
 }
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub = false, bool reuseVertices = false);
 

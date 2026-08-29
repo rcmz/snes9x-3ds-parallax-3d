@@ -63,6 +63,15 @@ A plane's high-priority tiles sit in front of sprites that are themselves in
 front of that same plane's low-priority tiles. Each of those slots therefore
 gets its own slider: BG1 to BG4 at both priorities, and sprites at all four.
 
+BG3's high priority appears twice in that list, and so it has two sliders --
+**BG3 prio 1** and **BG3 prio 1 front**. Bit 3 of `$2105` decides which of the
+two places it occupies, and they are at opposite ends of the stack: behind the
+sprites, or in front of all of them. The content differs to match, since a game
+sets that bit precisely when it wants something over everything else, so one
+depth cannot serve both. Only one of the two is ever in the frame at a time,
+and the other greys out. A game that flips the bit part-way down a frame gets
+both, each band at its own depth.
+
 That distinction is not academic. Super Metroid draws its interface *and* the
 Crateria rain on BG3, and the only thing separating them is the priority bit --
 the interface on priority 1, the rain on priority 0. One depth per plane forces
@@ -99,26 +108,34 @@ splitting priorities there can still tear.
 
 ### Reading the list
 
-The sliders are listed in the order the background mode currently in use
-composites them, front-most first, so the list is the stack of planes it is
-setting the depth of. The mode is named above them, along with whether `$2105`
-bit 3 has lifted BG3's high-priority tiles to the front.
+The sliders are listed front-most first, in the stack Modes 0 and 1 composite,
+which is the fullest arrangement the hardware has. The order is fixed: a row
+never moves. Modes 2 to 7 keep those backgrounds in the same relative order but
+interleave the sprites between them differently, so in those modes the list is a
+stable arrangement to aim at rather than that mode's exact composite order.
 
-The slots a mode does not have are collected under a second heading and drawn
-greyed. Only Mode 0 has four backgrounds; Mode 1 has three, Modes 2 to 5 have
-BG1 and BG2, Mode 6 has BG1 alone, and Mode 7 leaves every background to the
-sprites. Those slots stay adjustable, because a game is free to change mode
-while the menu is closed, and even part-way down a frame.
+The slots the current mode does not draw grey out in place -- they do not move
+and they do not disappear, and they stay adjustable, because a game is free to
+change mode while the menu is closed. Only Mode 0 has four backgrounds; Mode 1
+has three, Modes 2 to 5 have BG1 and BG2, Mode 6 has BG1 alone, and Mode 7
+leaves every background to the sprites. The mode itself is named on the
+**Per-Layer 3D Depth** row.
 
-Beside each slider is a small preview of what that slot alone holds in the frame
-behind the menu, rendered by drawing the frame again with the other slots held
-back. An outlined but empty preview means the game is drawing nothing on that
-slot in this frame, which is as useful to know as the picture itself.
+Beside each slider is a preview of what that slot alone holds in the frame behind
+the menu, rendered by drawing the frame again with the other slots held back. An
+outlined but empty preview means the game is drawing nothing on that slot in this
+frame, which is as useful to know as the picture itself. Each preview pixel takes
+the brightest of the pixels it stands for rather than their average, so that
+something sparse -- rain, a HUD, a few sprites -- still shows at this size
+instead of averaging away to black. A layer therefore previews brighter than it
+really is.
 
-The list is built from the mode the game was in when it stopped, and each preview
-is of that one frame. Both are of a moment: a game that changes mode between
-rooms, or part-way down a frame, will order and preview differently the next time
-the menu is opened.
+The rows are twice the usual height to fit those previews, so about six of the
+thirteen sliders are on screen at once and the rest are a scroll away.
+
+Both the greying and the previews come from the frame the game stopped on. A game
+that changes mode between rooms, or part-way down a frame, will look different
+the next time the menu is opened.
 
 ### Using the sliders
 

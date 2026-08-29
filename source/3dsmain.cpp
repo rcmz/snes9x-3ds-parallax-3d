@@ -775,53 +775,57 @@ const std::vector<SMenuItem>& makeOptionsForScreenFilter() {
 // has, and where they fall in that stack, both change with the
 // mode; their names do not.
 //---------------------------------------------------------
+// Tab-separated so the row draws its parts in columns: the plane, the word
+// "prio", the priority number, and what makes BG3's high priority a slot of
+// its own. Read down the list the numbers then line up instead of sitting
+// wherever the plane name happens to end.
 static const char *depth3dSlotName(int slot) {
     static const char *names[DEPTH3D_SLOT_COUNT] = {
-        "  BG1 prio 0", "  BG1 prio 1",
-        "  BG2 prio 0", "  BG2 prio 1",
-        "  BG3 prio 0", "  BG3 prio 1",
-        "  BG4 prio 0", "  BG4 prio 1",
-        "  OBJ prio 0", "  OBJ prio 1", "  OBJ prio 2", "  OBJ prio 3",
+        "BG1\tprio\t0", "BG1\tprio\t1",
+        "BG2\tprio\t0", "BG2\tprio\t1",
+        "BG3\tprio\t0", "BG3\tprio\t1",
+        "BG4\tprio\t0", "BG4\tprio\t1",
+        "OBJ\tprio\t0", "OBJ\tprio\t1", "OBJ\tprio\t2", "OBJ\tprio\t3",
+        "BG3\tprio\t1\tfront",
     };
 
     return names[slot];
 }
 
-static void addDepth3DSlotGauge(std::vector<SMenuItem>& items, int slot, bool dimmed) {
-    AddMenuGauge(items, depth3dSlotName(slot), -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[slot],
-        [slot]( int val ) {
-            if (CheckAndUpdate(settings3DS.Depth3D[slot], (s8)val))
-                menu3dsSetScreenDirty();
-        }, true);
-
-    items.back().Dimmed = dimmed;
-    items.back().PreviewSlot = slot;
-}
-
 void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     items.clear();
 
-    AddMenuHeader1(items, "3D DEPTH"_s);
-
     if (!gpu3dsIs3DAvailable()) {
+        AddMenuHeader1(items, "3D DEPTH"_s);
         AddMenuDisabledOption(items, "  This model has no 3D screen."_s);
 
         return;
     }
 
     if (settings3DS.GameScreen != GFX_TOP) {
+        AddMenuHeader1(items, "3D DEPTH"_s);
         AddMenuDisabledOption(items, "  Needs the game on the top screen."_s);
 
         return;
     }
 
     if (settings3DS.EnhancedResolution != Setting::EnhancedResolution::Off) {
+        AddMenuHeader1(items, "3D DEPTH"_s);
         AddMenuDisabledOption(items, "  Needs Enhanced Resolution switched off."_s);
         items.emplace_back(nullptr, MenuItemType::Textarea, "  The 512px render path leaves no room for the"_s, ""_s);
         items.emplace_back(nullptr, MenuItemType::Textarea, "  off-screen margin a shifted plane draws into."_s, ""_s);
 
         return;
     }
+
+    // What the game was drawing when it stopped. A game is free to change mode
+    // while the menu is closed, and even part-way down a frame, so this is the
+    // mode of the last thing it drew rather than a property of the game.
+    int bgMode = PPU.BGMode;
+    bool bg3Priority = PPU.BG3Priority;
+
+    char modeText[32];
+    snprintf(modeText, sizeof(modeText), "Mode %d", bgMode);
 
     AddMenuCheckbox(items, "  Per-Layer 3D Depth"_s, settings3DS.Depth3DEnabled,
         []( int val ) {
@@ -833,6 +837,8 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
             }
         });
 
+    items.back().Description = modeText;
+
     if (!settings3DS.Depth3DEnabled) {
         items.emplace_back(nullptr, MenuItemType::Textarea, "  Places each SNES plane and priority at its own"_s, ""_s);
         items.emplace_back(nullptr, MenuItemType::Textarea, "  depth instead of one flat picture."_s, ""_s);
@@ -840,55 +846,26 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         return;
     }
 
-    // What the game was drawing when it stopped. A game is free to change mode
-    // while the menu is closed, and even part-way down a frame, so this is the
-    // mode of the last thing it drew rather than a property of the game.
-    int bgMode = PPU.BGMode;
-    bool bg3Priority = PPU.BG3Priority;
+    const u8 *order = depth3dSlotOrder();
 
-    u8 order[DEPTH3D_SLOT_COUNT];
-    int composited = depth3dSlotOrder(bgMode, bg3Priority, order);
+    for (int i = 0; i < DEPTH3D_SLOT_COUNT; i++) {
+        int slot = order[i];
 
-    char modeText[64];
+        AddMenuGauge(items, depth3dSlotName(slot), -DEPTH3D_MAX, DEPTH3D_MAX, settings3DS.Depth3D[slot],
+            [slot]( int val ) {
+                if (CheckAndUpdate(settings3DS.Depth3D[slot], (s8)val))
+                    menu3dsSetScreenDirty();
+            }, true);
 
-    if (bgMode == 7) {
-        snprintf(modeText, sizeof(modeText), "  Mode 7 - only sprites take depth");
-    } else if (bgMode == 1 && bg3Priority) {
-        snprintf(modeText, sizeof(modeText), "  Mode %d - BG3 prio 1 in front", bgMode);
-    } else {
-        snprintf(modeText, sizeof(modeText), "  Mode %d", bgMode);
+        // Every slot keeps its place in the list whatever the mode is doing.
+        // The ones this mode does not composite go quiet rather than moving or
+        // disappearing, and stay adjustable: the mode can change at any time.
+        items.back().Dimmed = depth3dSlotDepth(bgMode, bg3Priority, slot) < 0;
+        items.back().PreviewSlot = slot;
     }
 
-    AddMenuDisabledOption(items, ""_s);
-    AddMenuHeader2(items, "Front to back"_s);
-    AddMenuDisabledOption(items, modeText);
-
-    for (int i = 0; i < composited; i++)
-        addDepth3DSlotGauge(items, order[i], false);
-
-    if (composited < DEPTH3D_SLOT_COUNT) {
-        char unusedText[64];
-        snprintf(unusedText, sizeof(unusedText), "Not drawn in mode %d", bgMode);
-
-        AddMenuDisabledOption(items, ""_s);
-        AddMenuHeader2(items, unusedText);
-
-        for (int i = composited; i < DEPTH3D_SLOT_COUNT; i++)
-            addDepth3DSlotGauge(items, order[i], true);
-    }
-
-    AddMenuDisabledOption(items, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  0 = at the screen, higher = further back."_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  The preview beside each slider is what that slot"_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  alone holds in the frame behind this menu."_s, ""_s);
-    AddMenuDisabledOption(items, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  A background holds one tile per cell, so splitting its"_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  two priorities tears any surface they tile together:"_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  give them different depths only when one of them is a"_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  sparse overlay, such as an interface or rain."_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  The backdrop fills the screen and is always furthest"_s, ""_s);
-    items.emplace_back(nullptr, MenuItemType::Textarea, "  back, so it has no depth of its own."_s, ""_s);
-    AddMenuDisabledOption(items, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  0 at the screen, higher further back."_s, ""_s);
+    items.emplace_back(nullptr, MenuItemType::Textarea, "  Greyed rows are slots this mode does not draw."_s, ""_s);
 }
 
 void makeOptionMenu(std::vector<SMenuItem>& items, std::vector<SMenuTab>& menuTabs, int& currentMenuTab) {
@@ -1405,11 +1382,23 @@ bool settingsReadWriteFullListByGame(bool writeMode)
             "Depth3DBG3P0=%d\n", "Depth3DBG3P1=%d\n",
             "Depth3DBG4P0=%d\n", "Depth3DBG4P1=%d\n",
             "Depth3DOBJP0=%d\n", "Depth3DOBJP1=%d\n", "Depth3DOBJP2=%d\n", "Depth3DOBJP3=%d\n",
+            "Depth3DBG3P1Front=%d\n",
         };
 
-        for (int slot = 0; slot < DEPTH3D_SLOT_COUNT; slot++) {
+        // The keys are read in the order they are written, so the slot added
+        // after the others is read last and only from a file new enough to
+        // carry it. An older file gets it seeded from the single BG3 setting
+        // it used to have, which is what that setting meant there.
+        int knownSlots = detectedConfigVersion >= 1.8f || writeMode
+            ? DEPTH3D_SLOT_COUNT
+            : DEPTH3D_BG3_PRIO1_FRONT;
+
+        for (int slot = 0; slot < knownSlots; slot++) {
             config3dsReadWriteEnum(stream, writeMode, depth3DKey[slot], &settings3DS.Depth3D[slot], -DEPTH3D_MAX, DEPTH3D_MAX);
         }
+
+        if (knownSlots < DEPTH3D_SLOT_COUNT)
+            settings3DS.Depth3D[DEPTH3D_BG3_PRIO1_FRONT] = settings3DS.Depth3D[DEPTH3D_BG3_PRIO1];
     }
 
     config3dsReadWriteInt32(stream, writeMode, "Frameskips=%d\n", &settings3DS.MaxFrameSkips, 0, 4);

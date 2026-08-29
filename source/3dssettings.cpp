@@ -275,54 +275,53 @@ int depth3dSlotDepth(int bgMode, bool bg3Priority, int slot) {
     if (slot < 0 || slot >= DEPTH3D_SLOT_COUNT)
         return -1;
 
-    if (slot >= DEPTH3D_OBJ_PRIO0)
-        return (slot - DEPTH3D_OBJ_PRIO0 + 1) * 3;
-
     if (bgMode < 0 || bgMode > 7)
         return -1;
 
-    int bg = slot / 2;
-    int priority = slot & 1;
+    // The one bit a game can move a plane with. Only one of BG3's two
+    // high-priority slots is in the frame at a time, and $2105 bit 3 says
+    // which. Snes9x reads that bit in mode 1 alone, which is what appendix
+    // A-19 shows, though the register page says mode 0 or 1.
+    bool lifted = bgMode == 1 && bg3Priority;
 
-    // The one bit a game can move a plane with: in mode 1 it lifts BG3's
-    // high-priority tiles from behind the sprites to in front of all of them.
-    if (bgMode == 1 && bg3Priority && bg == 2 && priority == 1)
-        return 13;
+    if (slot == DEPTH3D_BG3_PRIO1_FRONT)
+        return lifted ? 13 : -1;
 
-    return depth3dBgDepths[bgMode][bg][priority];
+    if (slot == DEPTH3D_BG3_PRIO1 && lifted)
+        return -1;
+
+    if (slot >= DEPTH3D_OBJ_PRIO0)
+        return (slot - DEPTH3D_OBJ_PRIO0 + 1) * 3;
+
+    return depth3dBgDepths[bgMode][slot / 2][slot & 1];
 }
 
-int depth3dSlotOrder(int bgMode, bool bg3Priority, u8 order[DEPTH3D_SLOT_COUNT]) {
-    s8 depth[DEPTH3D_SLOT_COUNT];
-    int used = 0;
+//---------------------------------------------------------
+// The order the sliders are listed in, front-most first.
+//
+// It is the stack modes 0 and 1 composite, which is the fullest the hardware
+// has, and it does not change with the mode: a row that moved out from under
+// the cursor as the game switched modes would be harder to aim at than one
+// that stays put and greys out. Modes 2 to 7 keep the same backgrounds in the
+// same relative order but interleave the sprites between them differently, so
+// there the list is a stable arrangement rather than that mode's exact order.
+//---------------------------------------------------------
+static const u8 depth3dStack[DEPTH3D_SLOT_COUNT] = {
+    DEPTH3D_BG3_PRIO1_FRONT,    // 13, only while $2105 bit 3 is set in mode 1
+    DEPTH3D_OBJ_PRIO3,          // 12
+    DEPTH3D_BG1_PRIO1,          // 11
+    DEPTH3D_BG2_PRIO1,          // 10
+    DEPTH3D_OBJ_PRIO2,          //  9
+    DEPTH3D_BG1_PRIO0,          //  8
+    DEPTH3D_BG2_PRIO0,          //  7
+    DEPTH3D_OBJ_PRIO1,          //  6
+    DEPTH3D_BG3_PRIO1,          //  5
+    DEPTH3D_BG4_PRIO1,          //  4
+    DEPTH3D_OBJ_PRIO0,          //  3
+    DEPTH3D_BG3_PRIO0,          //  2
+    DEPTH3D_BG4_PRIO0,          //  1
+};
 
-    for (int slot = 0; slot < DEPTH3D_SLOT_COUNT; slot++) {
-        depth[slot] = (s8)depth3dSlotDepth(bgMode, bg3Priority, slot);
-
-        if (depth[slot] >= 0)
-            order[used++] = (u8)slot;
-    }
-
-    // Front-most first, so the list reads the way the planes stack towards the
-    // viewer. Few enough entries that an insertion sort is the clearest one.
-    for (int i = 1; i < used; i++) {
-        u8 slot = order[i];
-        int j = i - 1;
-
-        while (j >= 0 && depth[order[j]] < depth[slot]) {
-            order[j + 1] = order[j];
-            j--;
-        }
-
-        order[j + 1] = slot;
-    }
-
-    int total = used;
-
-    for (int slot = 0; slot < DEPTH3D_SLOT_COUNT; slot++) {
-        if (depth[slot] < 0)
-            order[total++] = (u8)slot;
-    }
-
-    return used;
+const u8 *depth3dSlotOrder() {
+    return depth3dStack;
 }

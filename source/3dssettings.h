@@ -32,6 +32,15 @@ typedef enum {
     DEPTH3D_OBJ_PRIO1,
     DEPTH3D_OBJ_PRIO2,
     DEPTH3D_OBJ_PRIO3,
+
+    // BG3's high-priority tiles have two places in the stack rather than one:
+    // mode 1 can lift them from behind the sprites to in front of all of them,
+    // with bit 3 of $2105. That is the largest move any plane makes, and the
+    // two positions hold different things -- an overlay in front, scenery
+    // behind -- so each gets its own depth. Appended so the slots before it
+    // keep their numbering.
+    DEPTH3D_BG3_PRIO1_FRONT,
+
     DEPTH3D_SLOT_COUNT,
 } DEPTH3D_SLOT;
 
@@ -49,10 +58,10 @@ typedef enum {
 // means anything in mode 1.
 int depth3dSlotDepth(int bgMode, bool bg3Priority, int slot);
 
-// Fills order[] with every slot, the ones the mode composites first and in
-// front-to-rear order, the rest after them. Returns how many of them the mode
-// actually composites.
-int depth3dSlotOrder(int bgMode, bool bg3Priority, u8 order[DEPTH3D_SLOT_COUNT]);
+// Every slot, front-most first, in a fixed order that does not depend on the
+// mode. Which of them the mode actually composites is depth3dSlotDepth()'s
+// answer, so a slot keeps its place in the list and only goes inactive.
+const u8 *depth3dSlotOrder();
 
 #ifndef VERSION_MAJOR
 #define VERSION_MAJOR 0
