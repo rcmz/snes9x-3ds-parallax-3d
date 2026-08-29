@@ -873,9 +873,11 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     };
 
     AddMenuPicker(items, "  Sliders for"_s,
-        "Each arrangement of the SNES' planes keeps its own depths, because the planes stack differently in each.\n"
-        "Greyed rows are slots the current mode does not draw.\n"
-        "Previews are blank unless the arrangement shown is the one on screen."_s,
+        // Three lines is what the dialog has room for, and each has to fit a
+        // line on its own or it wraps and pushes the rest off the bottom.
+        "The two arrangements keep separate depths.\n"
+        "Greyed rows are slots this mode does not draw.\n"
+        "Previews are blank unless this set is current."_s,
         makePickerOptions(familyNames), depth3dShownFamily, DIALOG_TYPE_INFO, true,
         []( int val ) {
             if (CheckAndUpdate(depth3dShownFamily, val)) {
