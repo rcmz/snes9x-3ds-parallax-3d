@@ -157,10 +157,10 @@ Both the greying and the previews come from the frame the game stopped on. A gam
 that changes mode between rooms, or part-way down a frame, will look different
 the next time the menu is opened.
 
-### Screen edges
+### Edge cropping
 
 A slot with depth moves sideways between the eyes, so it stops short of one edge
-of one eye and something has to give there. **Screen edges** decides what.
+of one eye and something has to give there. **Edge cropping** decides what.
 
 * **Per layer** (the default) cuts each slot's geometry back to the visible
   screen before the shift moves it. The slot then runs out at one edge over a

@@ -28,7 +28,7 @@ This core is based on **snes9x 1.43**, which uses the older, less accurate SNES 
 ## Per-layer 3D depth
 
 A slot given a depth slides sideways between the two eyes, so it stops short of
-one edge of one eye. What happens there is the **Screen edges** setting, and
+one edge of one eye. What happens there is the **Edge cropping** setting, and
 none of its three answers is free.
 
 By default each slot's geometry is cut back to the visible screen before the

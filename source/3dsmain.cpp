@@ -852,10 +852,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         });
 
     if (!settings3DS.Depth3DEnabled) {
-        items.emplace_back(nullptr, MenuItemType::Textarea, "  Places each SNES plane and priority at its own"_s, ""_s);
-        items.emplace_back(nullptr, MenuItemType::Textarea, "  depth instead of one flat picture."_s, ""_s);
-        items.emplace_back(nullptr, MenuItemType::Textarea, "  0 at the screen, higher further back,"_s, ""_s);
-        items.emplace_back(nullptr, MenuItemType::Textarea, "  negative in front of it."_s, ""_s);
+        items.emplace_back(nullptr, MenuItemType::Textarea, "  Move each SNES render layer to its own 3D depth."_s, ""_s);
 
         return;
     }
@@ -863,13 +860,13 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     // What a slot's shift leaves behind at the screen edge. Cutting the tiles
     // back is decided while the frame is drawn, so a change to or from "None"
     // shows on the next frame the game draws rather than on the paused one.
-    AddMenuPicker(items, "  Screen edges"_s,
+    AddMenuPicker(items, "  Edge cropping"_s,
         // Three lines is what the dialog has room for, and each has to fit a
         // line on its own or it wraps and pushes the rest off the bottom.
-        "Per layer: a slot stops at the screen edge.\n"
-        "Whole frame: one strip per eye, widest shift.\n"
-        "None: shows tiles kept just off-screen."_s,
-        makePickerOptions({"Per layer", "Whole frame", "None"}),
+        "How to crop shifted layer edges."_s,
+        // The tab row draws the chosen one right-aligned in 140px, so these have
+        // to stay inside that or their left end is cut off there.
+        makePickerOptions({"Per layer (individually)", "Whole frame (max shift)", "None (off-screen tiles)"}),
         static_cast<int>(settings3DS.Depth3DEdges), DIALOG_TYPE_INFO, true,
         []( int val ) {
             if (CheckAndUpdate(settings3DS.Depth3DEdges, static_cast<Setting::Depth3DEdges>(val))) {
@@ -892,9 +889,9 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     AddMenuPicker(items, "  Sliders for"_s,
         // Three lines is what the dialog has room for, and each has to fit a
         // line on its own or it wraps and pushes the rest off the bottom.
-        "The two arrangements keep separate depths.\n"
-        "Greyed rows are slots this mode does not draw.\n"
-        "Previews are blank unless this set is current."_s,
+        "Modes 0-1 and modes 2-7 use a different layer order.\n"
+        "Depth settings are kept separate.\n"
+        "Greyed rows are layers not used in the current mode."_s,
         makePickerOptions(familyNames), depth3dShownFamily, DIALOG_TYPE_INFO, true,
         []( int val ) {
             if (CheckAndUpdate(depth3dShownFamily, val)) {
