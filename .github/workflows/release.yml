@@ -1,0 +1,73 @@
+# Builds the fork, and publishes a release when a version tag is pushed.
+#
+# Release assets are API objects rather than git objects, so pushing a tag is
+# not enough on its own -- something has to upload the built files afterwards.
+# Doing that here means the only credential involved is the token GitHub hands
+# the job, and no personal access token has to exist.
+#
+# The same tag is built and published independently on GitLab; see
+# .gitlab-ci.yml. Building twice is deliberate: it keeps each platform's
+# release self-contained and needs no cross-platform credential.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Carries devkitARM, libctru and the rest of the 3DS toolchain. The Makefile
+    # clones and patches its own citro3d at build time, so nothing else is
+    # needed here.
+    container: devkitpro/devkitarm
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build
+        run: make release
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build
+          path: |
+            output/*.3dsx
+            output/*.cia
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # Full history so the annotated tag's own message is available: the tag
+      # describes the version, and the release notes should not say something
+      # different from it.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: build
+          path: dist
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
+          [ -n "$notes" ] || notes="$GITHUB_REF_NAME"
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --notes "$notes"

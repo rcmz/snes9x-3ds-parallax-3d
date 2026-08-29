@@ -1,0 +1,74 @@
+# Builds the fork, and publishes a release when a version tag is pushed.
+#
+# GitLab and GitHub disagree about what a release asset is. GitHub takes an
+# uploaded file; a GitLab release holds only links, so each build goes to the
+# project's generic package registry first and the release points at it there.
+# That is why this takes three stages where the GitHub workflow takes two.
+#
+# Everything here authenticates with CI_JOB_TOKEN, which GitLab issues to the
+# job itself, so no personal or project access token has to exist.
+stages:
+  - build
+  - upload
+  - release
+
+variables:
+  # Where the built files live once uploaded, and what the release links to.
+  PKG_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${CI_PROJECT_NAME}/${CI_COMMIT_TAG}"
+
+build:
+  stage: build
+  # Carries devkitARM, libctru and the rest of the 3DS toolchain. The Makefile
+  # clones and patches its own citro3d at build time, so nothing else is needed.
+  image: devkitpro/devkitarm
+  script:
+    - make release
+  artifacts:
+    paths:
+      - output/
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "parallax3d"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+upload:
+  stage: upload
+  image:
+    name: curlimages/curl:latest
+    entrypoint: [""]
+  needs: ["build"]
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - |
+      for f in "output/${CI_PROJECT_NAME}.3dsx" "output/${CI_PROJECT_NAME}.cia"; do
+        echo "uploading $(basename "$f")"
+        curl --fail --silent --show-error \
+          --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --upload-file "$f" \
+          "${PKG_URL}/$(basename "$f")"
+      done
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs: ["upload"]
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - echo "Publishing ${CI_COMMIT_TAG}"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: $CI_COMMIT_TAG
+    # The annotated tag's own message, so the tag stays the one place a version
+    # describes itself.
+    description: $CI_COMMIT_TAG_MESSAGE
+    assets:
+      links:
+        - name: "${CI_PROJECT_NAME}.cia"
+          url: "${PKG_URL}/${CI_PROJECT_NAME}.cia"
+          link_type: package
+        - name: "${CI_PROJECT_NAME}.3dsx"
+          url: "${PKG_URL}/${CI_PROJECT_NAME}.3dsx"
+          link_type: package
