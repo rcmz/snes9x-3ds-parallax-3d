@@ -702,7 +702,7 @@ void impl3dsClearTopFramebuffers()
     }
 }
 
-static void impl3dsSceneRenderEye(bool firstFrame, bool paused, SVertexList *list,
+static void impl3dsSceneRenderEye(bool firstFrame, bool paused, bool pausedOverlay, SVertexList *list,
 	const GameScreenViewport &gameScreenViewport, bool drawBackground, bool balancedFilterEnabled, float xOffset) {
 
 	gpu3dsSetDefaultRenderState(SPROGRAM_SCREEN, false);
@@ -782,21 +782,21 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, SVertexList *lis
 
 		img3dsDrawGameOverlay(UI_OVERLAY, gameScreenViewport.sWidth, gameScreenViewport.cHeight);
 
-		if (paused) {
+		if (paused && pausedOverlay) {
 			// dim overlay + pause notification (nearest layer)
 			SGPUTexture *notifTexture = &GPU3DS.textures[UI_NOTIF_MSG];
 			int wx = notifTexture->tex.width - 1;
 			int wy = notifTexture->tex.height - 1;
 			gpu3dsAddQuadRect(0, 0, settings3DS.GameScreenWidth, SCREEN_HEIGHT, wx, wy, 0, 0xaa);
 			notif3dsDraw(UI_NOTIF_MSG, settings3DS.GameScreen, -xOffset);
-		} else {
+		} else if (!paused) {
 			notif3dsDraw(UI_NOTIF_MSG, settings3DS.GameScreen);
 			notif3dsDraw(UI_NOTIF_FPS, settings3DS.GameScreen);
 		}
 	}
 }
 
-void impl3dsSceneRender(bool firstFrame, bool paused) {
+void impl3dsSceneRender(bool firstFrame, bool paused, bool pausedOverlay) {
 	SVertexList *list = &GPU3DS.vertices[VBO_SCREEN];
     GameScreenViewport gameScreenViewport = {0};
 
@@ -814,7 +814,7 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
         gameScreenViewport.ty1 = static_cast<float>(PPU.ScreenHeight);
 
         GPU3DS.activeSide = GFX_LEFT;
-        impl3dsSceneRenderEye(firstFrame, paused, list, gameScreenViewport, false, false, 0.0f);
+        impl3dsSceneRenderEye(firstFrame, paused, pausedOverlay, list, gameScreenViewport, false, false, 0.0f);
 		
         return;
     }
@@ -902,13 +902,13 @@ void impl3dsSceneRender(bool firstFrame, bool paused) {
 	}
 
 	GPU3DS.activeSide = GFX_LEFT;
-	impl3dsSceneRenderEye(firstFrame, paused, list, gameScreenViewport, drawBackground, balancedFilterEnabled, -iod);
+	impl3dsSceneRenderEye(firstFrame, paused, pausedOverlay, list, gameScreenViewport, drawBackground, balancedFilterEnabled, -iod);
 
 	if (renderRightEye) {
 		GPU3DS.activeSide = GFX_RIGHT;
 		GPU3DS.appliedRenderState.target = TARGET_UNSET;
 
-		impl3dsSceneRenderEye(firstFrame, paused, list, gameScreenViewport, drawBackground, balancedFilterEnabled, iod);
+		impl3dsSceneRenderEye(firstFrame, paused, pausedOverlay, list, gameScreenViewport, drawBackground, balancedFilterEnabled, iod);
 
 		GPU3DS.activeSide = GFX_LEFT;
 	}
@@ -1246,6 +1246,117 @@ bool impl3dsTakeScreenshot(char *path, size_t bufferSize, bool renderFrame) {
     skipNextFpsUpdate = true;
 
 	return success;
+}
+
+//---------------------------------------------------------
+// Renders the paused frame once for every depth slot, each
+// time with the other slots pushed off the render target, and
+// averages the result down into one small tile per slot for the
+// menu to show beside its sliders.
+//
+// Each pass goes to the game screen and is read back from there,
+// the same route a screenshot takes, because that is where the
+// GPU's output can be reached from the CPU. Borrowing the
+// screenshot target puts the frame at a known size and position
+// and leaves the stereo shift out of it.
+//---------------------------------------------------------
+bool impl3dsCaptureDepthSlotPreviews(u16 *tiles)
+{
+	if (!settings3DS.isRomLoaded || screenshot.dirty || gfxIsWide())
+		return false;
+
+	SLayerList *layerList = &GPU3DSExt.layerList;
+
+	if (!layerList->verticesTotal || layerList->hasSkippedSections)
+		return false;
+
+	const int tileWidth = DEPTH3D_PREVIEW_WIDTH;
+	const int tileHeight = DEPTH3D_PREVIEW_HEIGHT;
+
+	impl3dsPrepareScreenshot(1.0f, true);
+
+	const int srcWidth = screenshot.width;
+	const int srcHeight = screenshot.height;
+	const int bpp = gpu3dsGetPixelSize(GPU_RGB8);
+	const int stride = SCREEN_HEIGHT * bpp;
+
+	for (int slot = 0; slot < DEPTH3D_SLOT_COUNT; slot++) {
+		gpu3dsSetDepthSlotIsolation(slot);
+
+		gpu3dsFrameBegin(0, true);
+			GPU3DSExt.stereo.eye = 0;
+			GPU3DS.snesSide = GFX_LEFT;
+
+			// The frame is normally opaque from the backdrop up, so the SNES
+			// screen is never cleared. A preview leaves the backdrop out and
+			// would otherwise be drawn over the frame still sitting there.
+			C3D_RenderTargetClear(
+				GPU3DS.textures[gpu3dsGetSnesScreenTexture(GFX_LEFT)].target,
+				C3D_CLEAR_COLOR, 0, 0);
+
+			// Which texture TARGET_SNES_MAIN resolves to is not part of the
+			// packed render state, so the target is forced to re-apply.
+			GPU3DS.appliedRenderState.target = TARGET_UNSET;
+			gpu3dsDrawSnesScreen();
+
+			impl3dsSceneRender(true, false);
+		gpu3dsFrameEnd();
+
+		gspWaitForEvent(GSPGPU_EVENT_PPF, GPU3DS.isReal3DS);
+		gfxScreenSwapBuffers(settings3DS.GameScreen, false);
+		impl3dsInvalidateScreen(settings3DS.GameScreen, false, false);
+
+		const u8 *fb = (const u8 *)gfxGetFramebuffer(settings3DS.GameScreen, GFX_LEFT, NULL, NULL);
+		u16 *tile = tiles + slot * tileWidth * tileHeight;
+
+		for (int y = 0; y < tileHeight; y++) {
+			int sy0 = screenshot.y + y * srcHeight / tileHeight;
+			int sy1 = screenshot.y + (y + 1) * srcHeight / tileHeight;
+
+			for (int x = 0; x < tileWidth; x++) {
+				int sx0 = screenshot.x + x * srcWidth / tileWidth;
+				int sx1 = screenshot.x + (x + 1) * srcWidth / tileWidth;
+				int r = 0, g = 0, b = 0, n = 0;
+
+				for (int sx = sx0; sx < sx1; sx++) {
+					const u8 *column = fb + sx * stride;
+
+					for (int sy = sy0; sy < sy1; sy++) {
+						const u8 *src = column + (SCREEN_HEIGHT - 1 - sy) * bpp;
+
+						b += src[0];
+						g += src[1];
+						r += src[2];
+						n++;
+					}
+				}
+
+				if (!n) n = 1;
+
+				r /= n;
+				g /= n;
+				b /= n;
+
+				tile[y * tileWidth + x] = (u16)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+			}
+		}
+	}
+
+
+	gpu3dsSetDepthSlotIsolation(-1);
+	screenshot.dirty = false;
+	impl3dsResetScreenshotTarget();
+
+	// The game screen was used as scratch for the passes above, and the SNES
+	// screen texture holds the last of them, so both have to be drawn again.
+	GPU3DS.gameScreenBufferDesync = true;
+
+	gpu3dsFrameBegin(0, true);
+		GPU3DS.appliedRenderState.target = TARGET_UNSET;
+		gpu3dsDrawSnesScreen();
+	gpu3dsFrameEnd();
+
+	return true;
 }
 
 //=============================================================================

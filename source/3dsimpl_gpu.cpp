@@ -346,6 +346,14 @@ void gpu3dsDrawLayers(SLayerList *list, bool buildIndices) {
 
             if (to <= from) continue;
 
+            // While one slot is being previewed on its own, the layers that are
+            // not tiles -- backdrop, colour math, brightness -- are left out.
+            // They are drawn as plain rectangles carrying no slot, so they
+            // cannot be held back the way the tiles can, and the backdrop alone
+            // would cover every preview.
+            if (GPU3DSExt.stereo.isolateSlot >= 0 && id >= LAYER_BACKDROP)
+                continue;
+
             GPU3DS.currentRenderState.depthTest = id < LAYER_OBJ ? SGPU_STATE_ENABLED : SGPU_STATE_DISABLED;
 
             if (id < LAYER_BACKDROP) {
@@ -548,7 +556,11 @@ void gpu3dsDrawSnesScreen() {
 
     gpu3dsUploadDepthSlotOffsets();
 
-    gpu3dsDrawMode7Texture();
+    // Mode 7 carries its depth as a single bit rather than one of the slots, so
+    // it has no slot to be isolated by and would sit behind every preview.
+    if (GPU3DSExt.stereo.isolateSlot < 0)
+        gpu3dsDrawMode7Texture();
+
     gpu3dsDrawLayers(list, firstPass);
 }
 
@@ -582,10 +594,19 @@ static void gpu3dsUploadDepthSlotOffsets() {
 
     for (int slot = 0; slot < SNES_DEPTH_SLOTS; slot++) {
         int source = stereo->depthSlotSource[slot];
-        float shift = source >= 0 ? (float)(stereo->eye * stereo->slotShift[source]) : 0.0f;
+        float shift;
+
+        if (stereo->isolateSlot >= 0) {
+            // Everything but the slot being previewed is pushed clear of the
+            // render target, which leaves the one slot alone on the screen.
+            shift = source == stereo->isolateSlot ? 0.0f : (float)DEPTH3D_ISOLATE_SHIFT;
+        } else {
+            shift = source >= 0 ? (float)(stereo->eye * stereo->slotShift[source]) : 0.0f;
+        }
 
         C3D_FVUnifSet(GPU_VERTEX_SHADER, loc + slot, shift, 0.0f, 0.0f, 0.0f);
     }
+
 }
 
 //---------------------------------------------------------
@@ -616,8 +637,14 @@ void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side) {
 // shift for the current 3D slider position. Called once per
 // frame so both eyes use the same values.
 //---------------------------------------------------------
+void gpu3dsSetDepthSlotIsolation(int slot) {
+    GPU3DSExt.stereo.isolateSlot = (s8)(slot >= 0 && slot < DEPTH3D_SLOT_COUNT ? slot : -1);
+}
+
 void gpu3dsUpdateStereoLayerShifts() {
     SStereoLayerState *stereo = &GPU3DSExt.stereo;
+
+    stereo->isolateSlot = -1;
 
     memset(stereo->slotShift, 0, sizeof(stereo->slotShift));
     memset(stereo->depthSlotSource, -1, sizeof(stereo->depthSlotSource));
@@ -625,6 +652,12 @@ void gpu3dsUpdateStereoLayerShifts() {
     stereo->eye = 0;
     stereo->shiftMax = 0;
     stereo->shiftMin = 0;
+
+    // Sprites always occupy the same depth slots, whatever the background mode,
+    // and the mapping is recorded even when no depth is in force so the menu's
+    // slot previews have it.
+    for (int priority = 0; priority < 4; priority++)
+        stereo->depthSlotSource[(priority + 1) * 3] = (s8)DEPTH3D_OBJ_SLOT(priority);
 
     // The 512px render path already uses the full width of the render
     // target, leaving no room for the off-screen margin the shifted
@@ -653,11 +686,6 @@ void gpu3dsUpdateStereoLayerShifts() {
         return;
 
     stereo->active = true;
-
-    // Sprites always occupy the same depth slots, whatever the background mode.
-    for (int priority = 0; priority < 4; priority++)
-        stereo->depthSlotSource[(priority + 1) * 3] = (s8)DEPTH3D_OBJ_SLOT(priority);
-
 }
 
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub, bool reuseVertices) {

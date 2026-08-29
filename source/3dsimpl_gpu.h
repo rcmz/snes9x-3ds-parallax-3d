@@ -195,6 +195,11 @@ typedef struct
 // the whole screen, so shifting them would only open a gap and they stay put.
 #define SNES_DEPTH_SLOTS    17
 
+// How far off the side of the render target a slot is pushed while another slot
+// is being previewed on its own. Wider than the target, so nothing of it lands
+// back on screen.
+#define DEPTH3D_ISOLATE_SHIFT   1024
+
 typedef struct
 {
     // Shift in SNES pixels for the right eye, per configurable slot; the left
@@ -222,6 +227,11 @@ typedef struct
 
     // true when at least one layer has a non-zero shift this frame
     bool            active;
+
+    // While >= 0, only the tiles belonging to that configurable slot are drawn:
+    // every other slot is pushed off the side of the screen. Used to render the
+    // menu's preview of what a slot holds, one slot at a time.
+    s8              isolateSlot;
 
     // false when the right eye's SNES screen could not be allocated
     bool            supported;
@@ -261,6 +271,10 @@ void gpu3dsInitLayers();
 void gpu3dsPrepareSnesScreenForNextFrame();
 void gpu3dsDrawSnesScreen();
 void gpu3dsUpdateStereoLayerShifts();
+
+// Draw only the tiles belonging to one configurable depth slot, for the menu's
+// per-slot previews. -1 restores the normal frame.
+void gpu3dsSetDepthSlotIsolation(int slot);
 void gpu3dsUpdateStereoLayerShiftsForPreview();
 
 //---------------------------------------------------------
@@ -319,9 +333,8 @@ static inline void gpu3dsMapPlaneDepthSlots(int bg, int slot0, int slot1)
 {
     SStereoLayerState *stereo = &GPU3DSExt.stereo;
 
-    if (!stereo->active)
-        return;
-
+    // Recorded whether or not any depth is in force: the menu's slot previews
+    // need the mapping even when the feature itself is switched off.
     if (slot0 >= 0 && slot0 < SNES_DEPTH_SLOTS)
         stereo->depthSlotSource[slot0] = (s8)DEPTH3D_BG_SLOT(bg, 0);
 

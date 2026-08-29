@@ -68,6 +68,48 @@ typedef enum {
     THUMB_SAVESTATE,
 } ThumbSource;
 
+//---------------------------------------------------------
+// One preview per depth slot, showing what the paused frame
+// draws on that slot alone. Captured the first time the depth
+// tab needs them and kept until the frame behind the menu can
+// change again.
+//---------------------------------------------------------
+static u16 slotPreviews[DEPTH3D_SLOT_COUNT * DEPTH3D_PREVIEW_WIDTH * DEPTH3D_PREVIEW_HEIGHT];
+static bool slotPreviewsCaptured = false;
+
+void menu3dsInvalidateSlotPreviews()
+{
+    slotPreviewsCaptured = false;
+}
+
+void menu3dsDrawSlotPreview(int slot, int x, int y)
+{
+    if (!slotPreviewsCaptured || slot < 0 || slot >= DEPTH3D_SLOT_COUNT)
+        return;
+
+    // A slot the game is not drawing on previews as an empty frame, so the
+    // preview is outlined: without it there would be nothing to see and no way
+    // to tell an empty slot from a missing preview.
+    int border = Themes[static_cast<int>(settings3DS.Theme)].disabledItemTextColor;
+
+    ui3dsDrawRect(x - 1, y, x + DEPTH3D_PREVIEW_WIDTH + 1, y + DEPTH3D_PREVIEW_HEIGHT + 2, border);
+    ui3dsDrawPixels(x, y + 1, DEPTH3D_PREVIEW_WIDTH, DEPTH3D_PREVIEW_HEIGHT,
+        slotPreviews + slot * DEPTH3D_PREVIEW_WIDTH * DEPTH3D_PREVIEW_HEIGHT);
+}
+
+// Renders the previews if the depth tab is about to want them. Returns true when
+// it drew, which leaves the game screen holding the capture grid.
+static bool menu3dsCaptureSlotPreviews()
+{
+    if (slotPreviewsCaptured)
+        return false;
+
+
+    slotPreviewsCaptured = impl3dsCaptureDepthSlotPreviews(slotPreviews);
+
+    return slotPreviewsCaptured;
+}
+
 // Load and draw the second-screen thumbnail for the currently selected row.
 bool menu3dsUpdateThumb(SMenuTab *currentTab, ThumbSource source)
 {
@@ -170,6 +212,10 @@ void menu3dsDrawItems(
     int offsetX = 0)
 {
     int fontHeight = 13;
+
+    // Where a row's slot preview goes: clear of the longest slot name, and clear
+    // of the value and the gauge on the right.
+    const int previewX = 150;
     
     // Display the subtitle
     if (!currentTab->SubTitle.empty())
@@ -276,11 +322,14 @@ void menu3dsDrawItems(
 
         else if (currentTab->MenuItems[i].Type == MenuItemType::Gauge)
         {
-            color = normalItemTextColor;
+            color = currentTab->MenuItems[i].Dimmed ? disabledItemTextColor : normalItemTextColor;
             if (currentTab->SelectedItemIndex == i)
                 color = selectedItemTextColor;
 
             ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, horizontalPadding, y, settings3DS.SecondScreenWidth - horizontalPadding, y + fontHeight, color, HALIGN_LEFT, currentTab->MenuItems[i].Text.c_str());
+
+            if (currentTab->MenuItems[i].PreviewSlot >= 0)
+                menu3dsDrawSlotPreview(currentTab->MenuItems[i].PreviewSlot, previewX, y);
 
             const int max = 40;
             int diff = currentTab->MenuItems[i].GaugeMaxValue - currentTab->MenuItems[i].GaugeMinValue;
@@ -1102,6 +1151,16 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
 
         gpu3dsSetTopMode();
 
+        // The depth tab shows what each slot holds. Capturing that has to happen
+        // outside the frame the loop draws below, and leaves the capture grid on
+        // the game screen, so the screen is marked for redrawing.
+        bool depthTabOpen = !isDialog && currentMenuTab == TAB_DEPTH3D && settings3DS.isRomLoaded;
+
+        if (depthTabOpen && settings3DS.Depth3DEnabled && menu3dsCaptureSlotPreviews()) {
+            gameScreenDirty = true;
+            secondScreenDirty = true;
+        }
+
         float iod = gpu3dsGetIOD();
 
         if (!isDialog && iod != prevIOD) {
@@ -1123,11 +1182,17 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
             for (int pass = 0; pass < passes; pass++) {
                 gpu3dsFrameBegin();
                     if (settings3DS.isRomLoaded) {
-                        // dim ingame screen
-                        notif3dsTrigger(Notif::Event::Paused, Notif::Type::Default, settings3DS.GameScreen);
-                        notif3dsSync();
-                        impl3dsSceneRender(true, true);
-                        notif3dsHide();
+                        // The depth tab is judged against the game screen, so it
+                        // is left alone: no dimming, and nothing written over it.
+                        if (!depthTabOpen) {
+                            notif3dsTrigger(Notif::Event::Paused, Notif::Type::Default, settings3DS.GameScreen);
+                            notif3dsSync();
+                        }
+
+                        impl3dsSceneRender(true, true, !depthTabOpen);
+
+                        if (!depthTabOpen)
+                            notif3dsHide();
                     } else {
                         bool renderRightEye = iod != 0;
                         gpu3dsClearScreen(settings3DS.GameScreen, renderRightEye);

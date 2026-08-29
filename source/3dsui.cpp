@@ -381,6 +381,37 @@ void ui3dsDrawRect(int x0, int y0, int x1, int y1, int color, float alpha)
     }
 }
 
+void ui3dsDrawPixels(int x0, int y0, int width, int height, const u16 *pixels)
+{
+    if (!pixels || width <= 0 || height <= 0)
+        return;
+
+    int sx = x0 + translateX;
+    int sy = y0 + translateY;
+
+    int left = sx < viewportX1 ? viewportX1 : sx;
+    int top = sy < viewportY1 ? viewportY1 : sy;
+    int right = sx + width > viewportX2 ? viewportX2 : sx + width;
+    int bottom = sy + height > viewportY2 ? viewportY2 : sy + height;
+
+    if (left >= right || top >= bottom)
+        return;
+
+    u16 *fb = (u16 *) gfxGetFramebuffer(settings3DS.SecondScreen, GFX_LEFT, NULL, NULL);
+
+    for (int x = left; x < right; x++)
+    {
+        int fbofs = x * SCREEN_HEIGHT + (239 - top);
+        const u16 *src = pixels + (top - sy) * width + (x - sx);
+
+        for (int y = top; y < bottom; y++)
+        {
+            fb[fbofs--] = *src;
+            src += width;
+        }
+    }
+}
+
 void ui3dsDrawCheckerboard(int x0, int y0, int x1, int y1, int color1, int color2)
 {
     x0 += translateX;

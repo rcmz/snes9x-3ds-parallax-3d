@@ -182,6 +182,18 @@ void impl3dsFlushScreen(gfxScreen_t screen, bool isTopStereo = false, bool isWid
 void impl3dsInvalidateScreen(gfxScreen_t screen, bool isTopStereo = false, bool isWide = false);
 void impl3dsClearTopFramebuffers();
 
-void impl3dsSceneRender(bool firstFrame, bool paused = false);
+void impl3dsSceneRender(bool firstFrame, bool paused = false, bool pausedOverlay = true);
+
+// Size of one slot preview in the 3D depth menu. A menu row is 13 pixels tall,
+// which leaves room for this and a one-pixel frame around it.
+#define DEPTH3D_PREVIEW_WIDTH   12
+#define DEPTH3D_PREVIEW_HEIGHT  10
+
+// Renders the paused frame once per depth slot with every other slot held back,
+// and averages each one down into tiles[], which must hold
+// DEPTH3D_SLOT_COUNT * DEPTH3D_PREVIEW_WIDTH * DEPTH3D_PREVIEW_HEIGHT pixels in
+// RGB565. Leaves the game screen holding the grid it drew, so the caller has to
+// redraw it.
+bool impl3dsCaptureDepthSlotPreviews(u16 *tiles);
 
 #endif

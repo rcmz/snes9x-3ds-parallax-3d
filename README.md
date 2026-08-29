@@ -97,11 +97,33 @@ The fill covers the ordinary background path. Offset-per-tile backgrounds
 (Modes 2 and 4), mosaic and the hi-res Mode 5/6 path do not have it yet, so
 splitting priorities there can still tear.
 
+### Reading the list
+
+The sliders are listed in the order the background mode currently in use
+composites them, front-most first, so the list is the stack of planes it is
+setting the depth of. The mode is named above them, along with whether `$2105`
+bit 3 has lifted BG3's high-priority tiles to the front.
+
+The slots a mode does not have -- BG4 outside Modes 0 and 1, BG3 and BG4 outside
+Mode 0 and 1, everything but the sprites in Mode 7 -- are collected under a
+second heading and drawn greyed. They stay adjustable, because a game is free to
+change mode while the menu is closed, and even part-way down a frame.
+
+Beside each slider is a small preview of what that slot alone holds in the frame
+behind the menu, rendered by drawing the frame again with the other slots held
+back. An outlined but empty preview means the game is drawing nothing on that
+slot in this frame, which is as useful to know as the picture itself.
+
+The list is built from the mode the game was in when it stopped, and each preview
+is of that one frame. Both are of a moment: a game that changes mode between
+rooms, or part-way down a frame, will order and preview differently the next time
+the menu is opened.
+
 ### Using the sliders
 
 * `0` places that slot at the screen, where a flat picture sits.
-* Higher values push it further behind the screen.
-* Negative values pull it in front of the screen.
+* Higher values push it further behind the screen, up to `11`.
+* Negative values pull it in front of the screen, down to `-11`.
 
 Depth is stored per game, because only the game knows which slot it uses for
 distant scenery, which one carries the playfield and which one is the HUD. A
@@ -114,6 +136,8 @@ rain, BG3 prio 1 `-4` for the interface, and sprites `-1`.
 
 Pause the game while adjusting: the top screen keeps showing the paused frame
 and redraws it as you move the sliders, so the effect can be judged directly.
+While the **3D Depth** tab is open the game screen is left alone -- no dimming
+and no "press START" over it -- since it is the thing being judged.
 A slider set beyond the margin the paused frame was built with previews clamped
 to that margin and takes full effect once the game runs again.
 

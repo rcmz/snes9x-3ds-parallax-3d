@@ -82,6 +82,15 @@ public:
     int     GaugeMinValue;
     int     GaugeMaxValue;
 
+    // Set on a row whose setting the game is not currently using. It is drawn
+    // in the disabled colour but stays selectable, because what a mode
+    // composites can change while the game runs.
+    bool    Dimmed = false;
+
+    // The depth slot this row edits, for the previews in the 3D depth tab.
+    // -1 on every other row.
+    int     PreviewSlot = -1;
+
     // All these fields are used if this is a picker.
     // (ID = 100000)
     //
@@ -162,6 +171,11 @@ void menu3dsAddTab(std::vector<SMenuTab>& menuTabs, const char *title, const std
 
 void menu3dsDrawEverything(SMenuTab& dialogTab, bool& isDialog, int& currentMenuTab, std::vector<SMenuTab>& menuTabs, int menuFrame = 0, int menuItemsFrame = 0, int dialogFrame = 0, bool animationFinished = true);
 void menu3dsDrawEverything(int& currentMenuTab, std::vector<SMenuTab>& menuTabs);
+
+// Previews of what each depth slot holds in the paused frame, shown beside the
+// sliders in the 3D depth tab.
+void menu3dsInvalidateSlotPreviews();
+void menu3dsDrawSlotPreview(int slot, int x, int y);
 void menu3dsSwapBuffersAndWaitForVBlank();
 
 int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuTab, std::vector<SMenuTab>& menuTabs);

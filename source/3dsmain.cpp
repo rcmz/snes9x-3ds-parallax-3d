@@ -2046,6 +2046,10 @@ void showMenu() {
     static std::vector<SMenuItem> emptyCheats;
     int currentMenuTab = menu3dsGetLastSelectedTabIndex();
 
+    // The frame the depth previews are taken from is the one the game stopped
+    // on, so they are dropped every time the menu is opened over a new one.
+    menu3dsInvalidateSlotPreviews();
+
     // 1. first boot
     // 2. new game loaded
     if (menuTabs.empty() || Memory.ROMCRC32 != lastLoadedRomCRC || menu3dsHasDirtyTabs())

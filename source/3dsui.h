@@ -56,6 +56,10 @@ void ui3dsPopViewport();
 void ui3dsSetTranslate(int tx, int ty);
 
 void ui3dsDrawRect(int x0, int y0, int x1, int y1, int color, float alpha = 1.0f);
+
+// Blits a block of RGB565 pixels onto the second screen, clipped to the current
+// viewport like everything else drawn there.
+void ui3dsDrawPixels(int x0, int y0, int width, int height, const u16 *pixels);
 void ui3dsDrawCheckerboard(int x0, int y0, int x1, int y1, int color1, int color2);
 
 void ui3dsDrawStringWithWrapping(gfxScreen_t targetScreen, int x0, int y0, int x1, int y1, int color, int horizontalAlignment, const char *buffer);
