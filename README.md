@@ -104,10 +104,11 @@ composites them, front-most first, so the list is the stack of planes it is
 setting the depth of. The mode is named above them, along with whether `$2105`
 bit 3 has lifted BG3's high-priority tiles to the front.
 
-The slots a mode does not have -- BG4 outside Modes 0 and 1, BG3 and BG4 outside
-Mode 0 and 1, everything but the sprites in Mode 7 -- are collected under a
-second heading and drawn greyed. They stay adjustable, because a game is free to
-change mode while the menu is closed, and even part-way down a frame.
+The slots a mode does not have are collected under a second heading and drawn
+greyed. Only Mode 0 has four backgrounds; Mode 1 has three, Modes 2 to 5 have
+BG1 and BG2, Mode 6 has BG1 alone, and Mode 7 leaves every background to the
+sprites. Those slots stay adjustable, because a game is free to change mode
+while the menu is closed, and even part-way down a frame.
 
 Beside each slider is a small preview of what that slot alone holds in the frame
 behind the menu, rendered by drawing the frame again with the other slots held
