@@ -712,27 +712,10 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, bool pausedOverl
 		img3dsDrawBackground(UI_BG_GAME, paused, xOffset);
 	}
 
-	// Leave the stereo window's edges undrawn. A slot with depth would otherwise
-	// show, at one edge, whatever lies outside the visible area of the tilemap,
-	// which the game is free to have reused for somewhere else.
-	GameScreenViewport eyeViewport = gameScreenViewport;
-
-	if (GPU3DSExt.stereo.active && !screenshot.dirty) {
-		int maskLeft, maskRight;
-		gpu3dsGetStereoEdgeMask(GPU3DS.activeSide, &maskLeft, &maskRight);
-
-		float pixelsPerTexel = (float)(eyeViewport.sx1 - eyeViewport.sx0) / (eyeViewport.tx1 - eyeViewport.tx0);
-
-		eyeViewport.tx0 += maskLeft;
-		eyeViewport.tx1 -= maskRight;
-		eyeViewport.sx0 += (int)(maskLeft * pixelsPerTexel + 0.5f);
-		eyeViewport.sx1 -= (int)(maskRight * pixelsPerTexel + 0.5f);
-	}
-
 	gpu3dsAddSimpleQuadVertexes(
-		eyeViewport.sx0, eyeViewport.sy0, eyeViewport.sx1, eyeViewport.sy1,
-		eyeViewport.tx0, eyeViewport.ty0,
-		eyeViewport.tx1, eyeViewport.ty1, 0);
+		gameScreenViewport.sx0, gameScreenViewport.sy0, gameScreenViewport.sx1, gameScreenViewport.sy1,
+		gameScreenViewport.tx0, gameScreenViewport.ty0,
+		gameScreenViewport.tx1, gameScreenViewport.ty1, 0);
 
 	// Sample this eye's own copy of the SNES screen.
 	SGPU_TEXTURE_ID snesScreen = GPU3DSExt.stereo.active
@@ -746,8 +729,8 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, bool pausedOverl
 
 	if (balancedFilterEnabled) {
 		gpu3dsAddSimpleQuadVertexes(
-			eyeViewport.sx0, eyeViewport.sy0, eyeViewport.sx1, eyeViewport.sy1,
-			eyeViewport.tx0, eyeViewport.ty0, eyeViewport.tx1, eyeViewport.ty1, 0, 0xFFFFFF88);
+			gameScreenViewport.sx0, gameScreenViewport.sy0, gameScreenViewport.sx1, gameScreenViewport.sy1,
+			gameScreenViewport.tx0, gameScreenViewport.ty0, gameScreenViewport.tx1, gameScreenViewport.ty1, 0, 0xFFFFFF88);
 
 		// Temporarily switch to linear sampling for the blend pass.
 		C3D_TexSetFilter(&GPU3DS.textures[snesScreen].tex, GPU_LINEAR, GPU_LINEAR);

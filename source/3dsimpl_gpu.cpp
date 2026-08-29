@@ -662,8 +662,6 @@ void gpu3dsUpdateStereoLayerShifts() {
     memset(stereo->depthSlotSource, -1, sizeof(stereo->depthSlotSource));
     stereo->active = false;
     stereo->eye = 0;
-    stereo->shiftMax = 0;
-    stereo->shiftMin = 0;
 
     // The sprite slots are recorded per band along with the backgrounds, since
     // which arrangement's depths apply depends on the mode that band is in.
@@ -680,6 +678,8 @@ void gpu3dsUpdateStereoLayerShifts() {
     if (strength <= 0.0f)
         return;
 
+    bool anyShift = false;
+
     for (int family = 0; family < DEPTH3D_FAMILY_COUNT; family++) {
         for (int i = 0; i < DEPTH3D_SLOT_COUNT; i++) {
             int shift = (int)lroundf(settings3DS.Depth3D[family][i] * strength);
@@ -689,12 +689,12 @@ void gpu3dsUpdateStereoLayerShifts() {
 
             stereo->slotShift[family][i] = (s8)shift;
 
-            if (shift > stereo->shiftMax) stereo->shiftMax = (s8)shift;
-            if (shift < stereo->shiftMin) stereo->shiftMin = (s8)shift;
+            if (shift)
+                anyShift = true;
         }
     }
 
-    if (!stereo->shiftMax && !stereo->shiftMin)
+    if (!anyShift)
         return;
 
     stereo->active = true;

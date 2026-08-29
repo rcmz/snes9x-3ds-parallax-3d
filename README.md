@@ -176,8 +176,6 @@ Pause the game while adjusting: the top screen keeps showing the paused frame
 and redraws it as you move the sliders, so the effect can be judged directly.
 While the **3D Depth** tab is open the game screen is left alone -- no dimming
 and no "press START" over it -- since it is the thing being judged.
-A slider set beyond the margin the paused frame was built with previews clamped
-to that margin and takes full effect once the game runs again.
 
 Notes:
 
@@ -195,12 +193,13 @@ Notes:
   compositing rules (priorities, windows, colour math) stay exactly as they are
   in 2D. The SNES itself is emulated once per frame; what is repeated per eye is
   replaying the frame's vertices, and only while the 3D slider is open.
-* A slot with depth pulls content in from outside the visible screen, and a game
-  only keeps its tilemap valid where it means to draw. Rather than show whatever
-  it has already reused for somewhere else, each eye leaves that strip undrawn --
-  the right eye at its left edge, the left eye at its right, which is what a
-  stereo window does. The strip is as wide as the largest shift in force, so
-  smaller depths cost fewer pixels.
+* Each slot is drawn where the game drew it and nowhere else. Nothing is read
+  from outside the visible screen, since a game only keeps its tilemap valid
+  where it means to draw, so a slot with depth runs out at one edge of one eye
+  and lets whatever sits behind it show through, over a strip no wider than that
+  slot's own shift. A slot left at `0` keeps the full width whatever its
+  neighbours are set to, and a slot in front of the scene reveals only the scene
+  behind it.
 
 ## Setup
 

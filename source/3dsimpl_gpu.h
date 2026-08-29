@@ -205,6 +205,12 @@ typedef struct
     // Shift in SNES pixels for the right eye, per configurable slot; the left
     // eye uses the negated value. Indexed the way depthSlotSource points into
     // it, by arrangement and then DEPTH3D_SLOT.
+    //
+    // A shift moves the geometry of that slot alone, and every layer's geometry
+    // covers the visible screen and nothing beyond it, so a displaced slot
+    // simply runs out at the opposite edge and lets whatever sits behind it
+    // show through. Nothing is drawn there that the game did not draw, and a
+    // slot left at 0 keeps its full width whatever the others are set to.
     s8              slotShift[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT];
 
     // Which configurable slot each hardware depth slot draws its shift from, as
@@ -219,13 +225,6 @@ typedef struct
     // Sign of the shift for the eye currently being drawn:
     // -1 = left, +1 = right, 0 = flat (no per-layer shift)
     s8              eye;
-
-    // Largest and smallest shift in force this frame. A slot displaced towards
-    // one screen edge shows, at the opposite edge, whatever the tilemap holds
-    // outside the visible area -- which the game is free to have reused for
-    // somewhere else. These bound the strip each eye has to leave undrawn.
-    s8              shiftMax;
-    s8              shiftMin;
 
     // true when at least one layer has a non-zero shift this frame
     bool            active;
@@ -279,25 +278,6 @@ void gpu3dsUpdateStereoLayerShifts();
 void gpu3dsSetDepthSlotIsolation(int slot);
 void gpu3dsUpdateStereoLayerShiftsForPreview();
 
-//---------------------------------------------------------
-// Width, in SNES pixels, that an eye must leave undrawn at each
-// screen edge. A shifted slot pulls content in from outside the
-// visible area, and the game only keeps the tilemap valid where
-// it means to draw, so that strip is not shown at all rather
-// than shown wrong. This is the stereo window, and putting it in
-// front of everything is what makes the edges read cleanly.
-//---------------------------------------------------------
-static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *right)
-{
-    const SStereoLayerState *stereo = &GPU3DSExt.stereo;
-    int eye = side == GFX_RIGHT ? 1 : -1;
-
-    int pulledFromLeft = eye > 0 ? stereo->shiftMax : -stereo->shiftMin;
-    int pulledFromRight = eye > 0 ? -stereo->shiftMin : stereo->shiftMax;
-
-    *left = pulledFromLeft > 0 ? pulledFromLeft : 0;
-    *right = pulledFromRight > 0 ? pulledFromRight : 0;
-}
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
 
 //---------------------------------------------------------
