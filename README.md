@@ -229,7 +229,10 @@ Notes:
 ## Setup
 
 * A modded 3DS is required; DSP firmware (`3ds/dspfirm.cdc`) is needed for sound output.
-* Install via [Universal Updater](https://universal-team.net/projects/universal-updater.html), or install the latest `.cia` from [Releases](https://github.com/matbo87/snes9x_3ds/releases).
+* Install the latest `.cia` from this project's
+  [Releases](https://gitlab.com/rcmz/snes9x-3ds-parallax-3d/-/releases). It has its
+  own title id, so it installs beside an existing Snes9x for 3DS rather than
+  replacing it.
 * Optional: download asset packs from [snes9x_3ds-assets releases](https://github.com/matbo87/snes9x_3ds-assets/releases).
 
 ROMs can be stored in any folder. ZIP files are not supported.
@@ -245,7 +248,7 @@ Configs, saves and imported assets are stored in `sd:/3ds/snes9x_3ds`.
 
 ### 3DSX version
 
-* Copy `snes9x_3ds.3dsx` to `sd:/3ds/snes9x_3ds`
+* Copy `snes9x-3ds-parallax-3d.3dsx` to `sd:/3ds/snes9x_3ds`
 * Start it from the Homebrew Launcher
 
 ## Assets (images and cheats)
@@ -284,12 +287,20 @@ Bundled binary provenance is documented in `makerom/BINARY_SOURCES.md`.
 
 ## Development and Contributions
 
-New work usually lands on `develop` first. Merges to `master` create build artifacts via GitHub Actions. Tagged GitHub [releases](https://github.com/matbo87/snes9x_3ds/releases) are the official stable releases.
+The work lives on `parallax3d`; `master` tracks upstream so the feature can be
+read as a diff against it. [GitLab](https://gitlab.com/rcmz/snes9x-3ds-parallax-3d)
+is the primary repository and carries the releases; the
+[GitHub](https://github.com/rcmz/snes9x-3ds-parallax-3d) repository is a mirror.
 
-Community PRs are welcome. For larger changes, a short issue first is appreciated.
-Please keep PRs focused and test on hardware where possible.
-AI-assisted code is fine, but contributors are responsible for understanding and validating the code they submit.
-Broad, risky, hard-to-review PRs may be closed or split into smaller changes. Prototype work may still be credited if it informs a later implementation.
+Per-layer depth is not offered upstream: matbo87 has already reviewed this class
+of feature and declined it, and this fork deliberately takes the opposite design
+decision to the one he asked for -- explicit per-slot control instead of a
+default that needs no configuration. Bug reports and fixes for the base emulator
+belong [upstream](https://github.com/matbo87/snes9x_3ds), not here.
+
+**Every line of this fork's per-layer depth work was written by Claude Opus 5.**
+See [Prior art](#prior-art): this is not the first attempt at stereoscopic 3D on
+this codebase.
 
 AI note: I use AI assistants as part of my development workflow, including code review, debugging, planning, implementation and documentation. All changes are reviewed and adjusted by me before they are merged.
 
@@ -363,6 +374,22 @@ AI note: I use AI assistants as part of my development workflow, including code 
 Satellaview games are supported, but compatibility is hit-or-miss.
 See [Known Issues](KNOWN_ISSUES.md#satellaview-bs-x-games) for details and per-game status.
 
+## Prior art
+
+Per-layer stereoscopic 3D was attempted on this codebase before, by
+[f4mrfaux](https://github.com/f4mrfaux/snes9x_3ds), starting in February 2026 --
+three pull requests to upstream ([#40](https://github.com/matbo87/snes9x_3ds/pull/40),
+[#42](https://github.com/matbo87/snes9x_3ds/pull/42),
+[#60](https://github.com/matbo87/snes9x_3ds/pull/60)) and seven releases. That
+work derives depth **automatically** from the SNES' own compositing value, so it
+needs no configuration, with seven per-layer sliders as an override; it also has
+Mode 7 perspective stereo, which this fork does not.
+
+This fork takes the opposite decision on purpose: no automatic mode, thirteen
+explicit plane-and-priority slots set by hand per game. Nothing can then infer a
+plane's depth wrongly, at the cost of having to tune each game. Both designs are
+worth knowing about before choosing one.
+
 ## License
 
 Some files may carry their own license headers, but because this project includes the Snes9x core (`source/Snes9x/`), redistribution of the combined project follows the Snes9x non-commercial license terms.
@@ -374,6 +401,7 @@ See:
 ## Credits
 
 * The Snes9x team for the SNES emulator core, and the libretro Snes9x core maintainers for ongoing reference work
+* f4mrfaux, for the earlier stereoscopic 3D work on this codebase, and the PR threads that documented what does and does not survive review
 * bubble2k, original author of [snes9x_3ds](https://github.com/bubble2k16/snes9x_3ds), for creating the excellent base this fork builds on
 * Wyatt-James for his [snes9x_3ds fork](https://github.com/Wyatt-James/snes9x_3ds); this fork adapts a few safety, audio and stability fixes from his work
 * ramzinouri's [snes9x_3ds fork](https://github.com/ramzinouri/snes9x_3ds) inspired the image border/background and theme support
