@@ -414,15 +414,21 @@ void gpu3dsDrawMode7Texture()
 
 	GPU3DSExt.mode7TilesModified = false;
 
-	// Citra workaround: 
+	// Citra workaround:
     // without this, drawing all 4 sections above leaves the Mode 7 texture blank on Citra.
-	// Force Citra to flush the surface to memory; 16 bytes seems enough here
+	// Force Citra to flush the surface to memory.
+	//
+	// The whole surface, not a token 16 bytes: what the copy flushes is what
+	// comes back, and a game that writes its Mode 7 tilemap once and never
+	// again -- a still picture, or anything that fills VRAM at boot -- has no
+	// second bake to correct the rest, so its plane stays blank for good.
+	// Only emulators reach this, and only on a frame that changed a tile.
 	if (!GPU3DS.isReal3DS)
 	{
 		C3D_SyncTextureCopy(
 			(u32 *)texture->tex.data, 0,
 			(u32 *)texture->tex.data, 0,
-			16, 8);
+			texture->tex.width * texture->tex.height * gpu3dsGetPixelSize(texture->tex.fmt), 8);
 	}
 
 	// SNES_MODE7_TILE_0 is only sampled when Mode7Repeat is 3 ("repeat tile 0
