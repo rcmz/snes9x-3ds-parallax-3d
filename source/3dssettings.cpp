@@ -78,6 +78,7 @@ void settings3dsResetGameDefaults() {
     settings3DS.Depth3DEnabled = false;
     settings3DS.Depth3DCropEdges = true;
     settings3DS.Depth3DFillGaps = true;
+    settings3DS.Depth3DMode7Perspective = true;
     memset(settings3DS.Depth3D, 0, sizeof(settings3DS.Depth3D));
 
     memset(settings3DS.LayerEnabled, true, sizeof(settings3DS.LayerEnabled));
@@ -270,14 +271,22 @@ static const s8 depth3dBgDepths[8][4][2] = {
     { {  5, 11 }, {  2,  8 }, { -1, -1 }, { -1, -1 } },   // mode 4
     { {  5, 11 }, {  2,  8 }, { -1, -1 }, { -1, -1 } },   // mode 5
     { {  5, 11 }, { -1, -1 }, { -1, -1 }, { -1, -1 } },   // mode 6
-    { { -1, -1 }, { -1, -1 }, { -1, -1 }, { -1, -1 } },   // mode 7 carries depth as one bit, not a slot
+    // Mode 7's plane is BG1 with one priority. BG2's two are the EXTBG plane,
+    // which is one plane drawn twice: its pixels carry a priority bit of their
+    // own and each pass keeps the pixels belonging to it.
+    { {  5, -1 }, {  2,  8 }, { -1, -1 }, { -1, -1 } },   // mode 7
 };
 
-int depth3dSlotDepth(int bgMode, bool bg3Priority, int slot) {
+int depth3dSlotDepth(int bgMode, bool bg3Priority, bool extbg, int slot) {
     if (slot < 0 || slot >= DEPTH3D_SLOT_COUNT)
         return -1;
 
     if (bgMode < 0 || bgMode > 7)
+        return -1;
+
+    // Without EXTBG there is no second Mode 7 plane, so neither of BG2's rows
+    // is in the frame.
+    if (bgMode == 7 && !extbg && slot >= DEPTH3D_BG2_PRIO0 && slot <= DEPTH3D_BG2_PRIO1)
         return -1;
 
     // The one bit a game can move a plane with. Only one of BG3's two

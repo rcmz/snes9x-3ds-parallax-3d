@@ -839,6 +839,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     // mode of the last thing it drew rather than a property of the game.
     int bgMode = PPU.BGMode;
     bool bg3Priority = PPU.BG3Priority;
+    bool extbg = IPPU.Mode7EXTBGFlag != 0;
     int currentFamily = DEPTH3D_FAMILY_OF(bgMode);
 
     AddMenuCheckbox(items, "  Per-Layer 3D Depth"_s, settings3DS.Depth3DEnabled,
@@ -871,6 +872,16 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         []( int val ) {
             if (CheckAndUpdateToggle(settings3DS.Depth3DFillGaps, val))
                 menu3dsSetScreenDirty();
+        });
+
+    // Whether a Mode 7 plane recedes across the screen or stands at one depth.
+    // Read at draw time, so this one does show on the paused frame.
+    AddMenuCheckbox(items, "  Mode 7 perspective"_s, settings3DS.Depth3DMode7Perspective,
+        []( int val ) {
+            if (CheckAndUpdateToggle(settings3DS.Depth3DMode7Perspective, val)) {
+                menu3dsInvalidateSlotPreviews();
+                menu3dsSetScreenDirty();
+            }
         });
 
     // The two arrangements stack their planes differently, so each keeps its
@@ -918,7 +929,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         // Greyed where the mode in front of you has no such plane. Only the
         // arrangement the game is actually in can say that, so the other one's
         // sliders are all shown live.
-        items.back().Dimmed = showing && depth3dSlotDepth(bgMode, bg3Priority, slot) < 0;
+        items.back().Dimmed = showing && depth3dSlotDepth(bgMode, bg3Priority, extbg, slot) < 0;
 
         // Every row keeps its picture, so the list is the same shape whichever
         // set is shown. The other arrangement's pictures come out black,
@@ -1498,6 +1509,11 @@ bool settingsReadWriteFullListByGame(bool writeMode)
     // line that is not there loses everything below it.
     if (writeMode || detectedConfigVersion >= 2.1f) {
         config3dsReadWriteEnum(stream, writeMode, "Depth3DFillGaps=%d\n", &settings3DS.Depth3DFillGaps, 0, 1);
+    }
+
+    // Same again for 2.2, which is where Mode 7 started taking depth at all.
+    if (writeMode || detectedConfigVersion >= 2.2f) {
+        config3dsReadWriteEnum(stream, writeMode, "Depth3DMode7Perspective=%d\n", &settings3DS.Depth3DMode7Perspective, 0, 1);
     }
 
     config3dsReadWriteInt32(stream, writeMode, "Frameskips=%d\n", &settings3DS.MaxFrameSkips, 0, 4);

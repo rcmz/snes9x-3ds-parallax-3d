@@ -141,9 +141,10 @@ Within an arrangement the order is the hardware's and never changes. The slots
 the current mode does not draw grey out in place -- they do not move and they do
 not disappear, and they stay adjustable, because a game is free to change mode
 while the menu is closed. Only Mode 0 has four backgrounds; Mode 1 has three,
-Modes 2 to 5 have BG1 and BG2, Mode 6 has BG1 alone, and Mode 7 leaves every
-background to the sprites. The mode itself is named on the **Per-Layer 3D
-Depth** row.
+Modes 2 to 5 have BG1 and BG2, Mode 6 has BG1 alone, and Mode 7 has one plane on
+BG1 prio 0 -- plus, where a game switches EXTBG on, a second on BG2's two
+priorities, which are the two halves of one plane split by a bit in its own
+pixels. The mode itself is named on the **Per-Layer 3D Depth** row.
 
 The list ends with the **Backdrop**, which takes no slider: it is one colour
 filling the screen and always furthest back, so a depth for it would mean
@@ -208,11 +209,42 @@ band of the frame to the next, so the strip can step in and out down the screen.
 Cutting the tiles back happens while the frame is drawn, so switching this shows
 on the next frame the game draws rather than on the paused one.
 
+### Mode 7 perspective
+
+A Mode 7 plane is not at one distance. It is a flat surface the hardware can
+tilt away from you, and the whole point of the mode is that the far end of it is
+further away than the near end. Giving it a single depth would stand it on end.
+
+**Mode 7 perspective** is on by default, and reads the distance out of what Mode
+7 is already doing rather than guessing it. The plane's scale on a scanline is
+how much of the texture that scanline covers, and scale is one over distance, so
+the span a scanline walks across the screen *is* its distance. The scale at
+which the plane is drawn 1:1 is taken as the screen, so:
+
+* a part of the plane drawn at 1:1 sits at the screen, whatever its slider says
+* the further parts recede behind it, up to the slider's full value
+* a part drawn larger than life comes in front of the screen instead
+
+A racing game's road therefore leaves the bottom of the screen where it is and
+sinks away towards the horizon, which is what looking at a road does. A plane
+with no perspective in it -- an overhead map, a whole-screen picture being
+spun -- walks the same span on every scanline and so comes out flat, at one
+depth, with nothing having to detect which kind it is.
+
+Switched off, the whole plane takes its slider's depth on every scanline. That
+is the escape hatch for a game whose Mode 7 is not a surface at all.
+
+The slider it scales is the one the plane's slot already has: **BG1 prio 0**
+for the Mode 7 plane, and **BG2 prio 0** and **BG2 prio 1** for the second plane
+EXTBG adds.
+
 ### Using the sliders
 
 * `0` places that slot at the screen, where a flat picture sits.
 * Higher values push it further behind the screen, up to `11`.
 * Negative values pull it in front of the screen, down to `-11`.
+* **X** puts the selected slider back to `0`, rather than walking it there. The
+  bottom bar offers it only while a slider is selected.
 
 Depth is stored per game, because only the game knows which slot it uses for
 distant scenery, which one carries the playfield and which one is the HUD. A
@@ -239,8 +271,10 @@ Notes:
   needs **Enhanced Resolution** to be off: a shift is added to the frame's
   geometry in render-target pixels, and that path draws at twice the scale, so
   every depth would come out at half the parallax asked for.
-* Mode 7 encodes depth as a single bit rather than a slot, so its planes are not
-  covered.
+* Mode 7 is covered, and takes the modes 2-7 sliders like every other mode in
+  that arrangement: its plane is **BG1 prio 0**, and the second plane EXTBG adds
+  is **BG2 prio 0** and **BG2 prio 1**. It reads its own perspective rather than
+  standing the plane on end -- see below.
 * Both eyes are rendered from the same frame's geometry, so the SNES
   compositing rules (priorities, windows, colour math) stay exactly as they are
   in 2D. The SNES itself is emulated once per frame; what is repeated per eye is
@@ -403,8 +437,11 @@ three pull requests to upstream ([#40](https://github.com/matbo87/snes9x_3ds/pul
 [#42](https://github.com/matbo87/snes9x_3ds/pull/42),
 [#60](https://github.com/matbo87/snes9x_3ds/pull/60)) and seven releases. That
 work derives depth **automatically** from the SNES' own compositing value, so it
-needs no configuration, with seven per-layer sliders as an override; it also has
-Mode 7 perspective stereo, which this fork does not.
+needs no configuration, with seven per-layer sliders as an override. Its Mode 7
+perspective stereo is where this fork's own came from: theirs scales one global
+offset by the scanline's position down the screen, in the geometry shader; this
+one scales the plane's own slot by the scale Mode 7 is drawing that scanline at,
+so a plane with no perspective in it stays flat instead of being ramped anyway.
 
 This fork takes the opposite decision on purpose: no automatic mode, thirteen
 explicit plane-and-priority slots set by hand per game. Nothing can then infer a

@@ -2,6 +2,8 @@
 #ifndef _3DSIMPL_GPU_H_
 #define _3DSIMPL_GPU_H_
 
+#include <math.h>
+
 #include "3dsgpu.h"
 #include "3dssettings.h"
 
@@ -69,8 +71,12 @@ typedef struct {
 	u32         Color;
 } SRectVertex;
 
+// One SNES scanline of a Mode 7 plane. z is always 0, which is what tells the
+// vertex shader there is no tile to unpack; w carries how far that scanline's
+// ground lies from the camera, so the plane can recede rather than stand up on
+// end. See gpu3dsEncodeMode7Depth.
 typedef struct {
-    SVector2i    Position;
+    SVector4i    Position;
 	STexCoord2f  TexCoord;
 } SMode7LineVertex;
 
@@ -199,6 +205,69 @@ typedef struct
 // is being previewed on its own. Wider than the target, so nothing of it lands
 // back on screen.
 #define DEPTH3D_ISOLATE_SHIFT   1024
+
+// What a Mode 7 scanline's right-hand vertex carries in place of a y. The
+// geometry shader reads that vertex to tell a scanline from a tile, so the y is
+// a marker rather than a position; the SNES depth slot is added to it, which is
+// how the right end of the scanline finds the shift the left end gets from its
+// own y. Far below any y a tile or a rectangle can hold.
+#define MODE7_RIGHT_EDGE_MARK   (-32768)
+
+// The y that vertex is handed on with once the vertex shader has taken the slot
+// back off it. This is what the geometry shader reads to tell a scanline from a
+// tile: anything projecting below the near plane is one.
+#define MODE7_GEOMETRY_MARK     (-16384)
+
+// The fixed point the shader reads a Mode 7 scanline's distance in: it scales
+// the slot's shift by 1 + w / MODE7_DEPTH_UNIT.
+#define MODE7_DEPTH_UNIT        4096
+
+// As near as a Mode 7 plane is allowed to come: the whole of the slot's shift,
+// with the sign flipped, so the plane stands in front of the screen by as much
+// as the slider would have put it behind.
+#define MODE7_DEPTH_NEAREST     (-2 * MODE7_DEPTH_UNIT)
+
+// The scale a Mode 7 plane sits at the screen plane at, in texels crossed per
+// scanline. A plane drawn 1:1 walks one texel per pixel, so it covers the
+// screen's 256 pixels with 256 texels.
+#define MODE7_SCREEN_PLANE_SPAN 256.0f
+
+//---------------------------------------------------------
+// How far a Mode 7 scanline's ground lies from the camera,
+// as the shader wants it.
+//
+// Mode 7 states the distance itself. The plane's scale on a
+// scanline is how much of the texture that scanline covers,
+// and scale is one over distance, so the texture distance the
+// scanline walks -- its span -- is the distance to the ground
+// it draws, up to a constant. That constant is fixed here by
+// calling the 1:1 scale the screen plane:
+//
+//   1:1, span 256      the scanline sits at the screen
+//   minified, farther  towards the slot's full depth
+//   magnified, nearer  the other way, in front of the screen
+//
+// which is the parallax of a point at distance Z seen with the
+// screen at the 1:1 distance. Taking the length of the span
+// rather than its horizontal part alone keeps a rotating plane
+// steady: the two are the same only when the plane is square
+// to the screen.
+//
+// A plane with no perspective walks the same span on every
+// scanline and comes out flat at one depth, which is what an
+// overhead Mode 7 wants and what a whole-screen Mode 7 picture
+// wants. Nothing has to detect which kind a game is drawing.
+//---------------------------------------------------------
+static inline s16 gpu3dsEncodeMode7Depth(float dtx, float dty)
+{
+    float span = sqrtf(dtx * dtx + dty * dty);
+
+    // Also the divide's guard: every span past this maps inside the range.
+    if (span <= MODE7_SCREEN_PLANE_SPAN / 2.0f)
+        return MODE7_DEPTH_NEAREST;
+
+    return (s16)(int)(-(MODE7_DEPTH_UNIT * MODE7_SCREEN_PLANE_SPAN) / span);
+}
 
 typedef struct
 {
@@ -606,15 +675,27 @@ inline void __attribute__((always_inline)) gpu3dsAddTileVertexes(
     list->count += 2;
 }
 
+//---------------------------------------------------------
+// Adds one scanline of a Mode 7 plane.
+//
+// The two ends are not symmetric. The left one carries the
+// scanline's y and the SNES depth it draws at, the way a tile
+// does; the right one carries a marker in place of a y,
+// because the geometry shader tells a scanline from a tile by
+// looking at it. That leaves the right end with no depth of
+// its own, so the slot rides in the marker: without it only
+// the left end would take the slot's stereo shift and the
+// scanline would stretch instead of moving.
+//---------------------------------------------------------
 inline void __attribute__((always_inline)) gpu3dsAddMode7LineVertexes(
-    s16 x0, s16 y0, s16 x1, s16 y1,
+    s16 x0, s16 y0, s16 x1, s16 slot, s16 depth7,
     float tx0, float ty0, float tx1, float ty1)
 {
     SVertexList *list = &GPU3DS.vertices[VBO_SCENE_MODE7_LINE];
     SMode7LineVertex *vertices = (SMode7LineVertex *) list->data + list->from + list->count;
 
-    vertices[0].Position = (SVector2i){x0, y0};
-    vertices[1].Position = (SVector2i){x1, y1};
+    vertices[0].Position = (SVector4i){x0, y0, 0, depth7};
+    vertices[1].Position = (SVector4i){x1, (s16)(MODE7_RIGHT_EDGE_MARK + slot), 0, depth7};
 
     vertices[0].TexCoord = {tx0, ty0};
     vertices[1].TexCoord = {tx1, ty1};

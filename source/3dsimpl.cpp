@@ -268,7 +268,7 @@ bool impl3dsInitialize()
 	SVertexListInfo listInfos[] = {
 		{ VBO_SCENE_RECT, vbo_scene_rect_size, sizeof(SRectVertex), 2, { {GPU_SHORT, 2}, {GPU_UNSIGNED_BYTE, 4} } },
 		{ VBO_SCENE_TILE, vbo_scene_tile_size, sizeof(STileVertex), 2, { {GPU_SHORT, 3}, {GPU_SHORT, 2} } },
-		{ VBO_SCENE_MODE7_LINE, vbo_scene_mode7_line_size, sizeof(SMode7LineVertex), 2, { {GPU_SHORT, 2}, {GPU_FLOAT, 2} } },
+		{ VBO_SCENE_MODE7_LINE, vbo_scene_mode7_line_size, sizeof(SMode7LineVertex), 2, { {GPU_SHORT, 4}, {GPU_FLOAT, 2} } },
 		{ VBO_MODE7_TILE, vbo_mode7_tile_size, sizeof(SMode7TileVertex), 1, { {GPU_SHORT, 4} } },
 		{ VBO_SCREEN, vbo_screen_size, sizeof(SQuadVertex), 4, { {GPU_FLOAT, 4}, {GPU_FLOAT, 2}, {GPU_UNSIGNED_BYTE, 4}, {GPU_UNSIGNED_BYTE, 4} } },
 	};

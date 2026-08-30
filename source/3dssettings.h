@@ -56,8 +56,9 @@ typedef enum {
 // Where a slot sits in the frame the given background mode composites: the
 // SNES depth it is drawn at, rear-most first, or -1 when the mode has no such
 // plane. bg3Priority is the "BG3 highest priority" bit of $2105, which only
-// means anything in mode 1.
-int depth3dSlotDepth(int bgMode, bool bg3Priority, int slot);
+// means anything in mode 1; extbg is the EXTBG bit of $2133, which only means
+// anything in mode 7.
+int depth3dSlotDepth(int bgMode, bool bg3Priority, bool extbg, int slot);
 
 // The two arrangements the hardware composites in, from appendix A-19: modes 0
 // and 1 stack up to four backgrounds with the sprites between them, modes 2 to
@@ -283,6 +284,11 @@ typedef struct {
     bool                Depth3DFillGaps;        // Close the strip a background's two priorities
                                                 // uncover between them when they sit at different
                                                 // depths, by carrying the further-back one across it.
+
+    bool                Depth3DMode7Perspective;// Let a Mode 7 plane recede across the screen,
+                                                // taking each scanline's distance from the scale
+                                                // Mode 7 is drawing it at, instead of standing the
+                                                // whole plane at its slot's depth.
 
     s8                  Depth3D[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT];
                                                 // Depth of each plane-and-priority slot, per

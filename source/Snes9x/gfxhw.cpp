@@ -3154,6 +3154,11 @@ void S9xDrawBackgroundMode7Hardware(int bg, bool8 sub, int depth, int alphaTestA
 	
 	int hiShift = GPU3DSExt.render2x.enabled ? 1 : 0;
 
+	// The right-hand end of a scanline has a marker where its y would be, so it
+	// carries the slot separately. The alpha rides in the same value the slot
+	// does, above it, and only the slot picks the stereo shift.
+	int slot = (depth >> 8) & 0x1F;
+
 	for (int Y = (int)LayerRender.startY[bg]; Y <= (int)GFX.EndY; Y++)
 	{
 		struct SLineMatrixData *p = &LineMatrixData [Y];
@@ -3199,8 +3204,8 @@ void S9xDrawBackgroundMode7Hardware(int bg, bool8 sub, int depth, int alphaTestA
 		float tx1 = (float)(AA1 + BB) * INV_M7_SCALE;
 		float ty1 = (float)(CC1 + DD) * INV_M7_SCALE;
 
-		// using -16384 for the geometry shader to detect mode 7
-		gpu3dsAddMode7LineVertexes(Left << hiShift, Y+depth, Right << hiShift, -16384, tx0, ty0, tx1, ty1);
+		gpu3dsAddMode7LineVertexes(Left << hiShift, Y+depth, Right << hiShift, slot,
+			gpu3dsEncodeMode7Depth(tx1 - tx0, ty1 - ty0), tx0, ty0, tx1, ty1);
 	}
 
 	layerVerticesCount[bg] = GPU3DS.vertices[VBO_SCENE_MODE7_LINE].count;
@@ -3216,7 +3221,10 @@ void S9xDrawBackgroundMode7HardwareRepeatTile0(int bg, bool8 sub, int depth)
 {
 	bool verticesUpdated = false;
 	int hiShift = GPU3DSExt.render2x.enabled ? 1 : 0;
-	
+
+	// Same as above: the scanline's right-hand end carries the slot itself.
+	int slot = (depth >> 8) & 0x1F;
+
 	for (int Y = (int)LayerRender.startY[bg]; Y <= (int)GFX.EndY; Y++)
 	{
 		struct SLineMatrixData *p = &LineMatrixData [Y];
@@ -3264,8 +3272,8 @@ void S9xDrawBackgroundMode7HardwareRepeatTile0(int bg, bool8 sub, int depth)
 
 		if (!withinTexture)
 		{
-			// using -16384 for the geometry shader to detect mode 7
-			gpu3dsAddMode7LineVertexes(Left << hiShift, Y+depth, Right << hiShift, -16384, tx0, ty0, tx1, ty1);
+			gpu3dsAddMode7LineVertexes(Left << hiShift, Y+depth, Right << hiShift, slot,
+				gpu3dsEncodeMode7Depth(tx1 - tx0, ty1 - ty0), tx0, ty0, tx1, ty1);
 
 			verticesUpdated = true;
 		}
@@ -3429,10 +3437,21 @@ void S9xRenderScreenHardware (bool8 sub)
 				} \
 
 			bool isTile0 = PPU.Mode7Repeat == 3;
+
+			// Mode 7's planes land on depths the modes 2-7 arrangement already
+			// has sliders for, so they take their stereo depth from those
+			// rather than from anything of their own. The plane is BG1 with a
+			// single priority; EXTBG adds a second plane whose per-pixel high
+			// bit picks between the two priorities of BG2, which is why it is
+			// drawn twice.
             if (IPPU.Mode7EXTBGFlag) {
+				gpu3dsMapPlaneDepthSlots(1, DEPTH3D_FAMILY_MODE27, 2, 8);
+
                 DRAW_M7BG(1, 2, 0, isTile0);
                 DRAW_M7BG(1, 8, 1, isTile0);
             }
+
+			gpu3dsMapPlaneDepthSlots(0, DEPTH3D_FAMILY_MODE27, 5, -1);
 
 			DRAW_M7BG(0, 5, 0, isTile0);
         

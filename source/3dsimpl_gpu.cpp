@@ -564,10 +564,10 @@ void gpu3dsDrawSnesScreen() {
 
     gpu3dsUploadDepthSlotOffsets();
 
-    // Mode 7 carries its depth as a single bit rather than one of the slots, so
-    // it has no slot to be isolated by and would sit behind every preview.
-    if (GPU3DSExt.stereo.isolateSlot < 0)
-        gpu3dsDrawMode7Texture();
+    // Safe to leave in while a slot is previewed on its own: it only bakes the
+    // Mode 7 tile texture, which the plane samples but which is not the plane,
+    // and a paused frame has no modified tiles for it to bake anyway.
+    gpu3dsDrawMode7Texture();
 
     gpu3dsDrawLayers(list, firstPass);
 }
@@ -624,6 +624,18 @@ static void gpu3dsUploadDepthSlotOffsets() {
         C3D_FVUnifSet(GPU_VERTEX_SHADER, loc + slot, shift, 0.0f, 0.0f, 0.0f);
     }
 
+    // How much of a Mode 7 scanline's own distance the shader reads. Zero
+    // leaves every scanline of the plane at the slot's depth, which is what the
+    // perspective switch turns off and what an isolated slot needs: the shift
+    // that holds a slot off the screen is scaled by this too, and a scanline
+    // sitting near the screen plane would scale it to nothing and stay in view.
+    bool perspective = settings3DS.Depth3DMode7Perspective && stereo->isolateSlot < 0;
+
+    C3D_FVUnifSet(GPU_VERTEX_SHADER, GPU3DS.shaderULocs[ULOC_MODE7_DEPTH],
+        perspective ? 1.0f / MODE7_DEPTH_UNIT : 0.0f,
+        -(float)MODE7_RIGHT_EDGE_MARK,
+        (float)MODE7_GEOMETRY_MARK,
+        0.0f);
 }
 
 //---------------------------------------------------------
