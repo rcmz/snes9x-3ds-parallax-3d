@@ -28,26 +28,18 @@ This core is based on **snes9x 1.43**, which uses the older, less accurate SNES 
 ## Per-layer 3D depth
 
 A slot given a depth slides sideways between the two eyes, so it stops short of
-one edge of one eye. What happens there is the **Edge cropping** setting, and
-none of its five answers is free.
+one edge of one eye. Neither answer to that is free.
 
-By default each slot's geometry is cut back to the visible screen before the
-shift moves it, so the slot runs out over a strip exactly as wide as its own
-shift and whatever sits behind it shows through. Slots left at 0 keep their full
-width. **Whole frame** leaves one strip per eye undrawn instead, as wide as the
-largest shift in the set of sliders the frame was drawn with -- the whole set,
-not just the slots the current mode uses, so that the width does not change
-under you when a game changes mode. It costs a few pixels from every slot. **None**
-draws the tiles a game keeps just outside the screen, which are valid only where
-it meant to draw them, and whose overhang follows that layer's scroll -- so that
-strip can step in and out down the frame.
-
-Those three leave that strip in one eye only, which is the eye whose layer did
-not move away from that edge: it has content there that the other eye has
-nothing to fuse with, and a region only one eye can see reads as a shimmer along
-the frame rather than as depth. **Per layer, both** and **Whole frame, both**
-take the same strip out of both eyes at both edges instead, at the cost of the
-picture the second strip covers.
+**Crop screen edges**, on by default, cuts every tile back to the visible screen
+before the shift moves it and then gives up the widest shift at all four edges
+of both eyes. It costs a few pixels of picture all round, taken from every slot
+including the ones that never moved. Switched off, the tiles a game keeps just
+outside the screen are drawn as the shift carries them in; those are valid only
+where it meant to draw them, and their overhang follows that layer's scroll, so
+the strip can step in and out down the frame. Leaving the strip in one eye only
+is the worse of the two: a region one eye can see and the other cannot has
+nothing to fuse with, and reads as a shimmer along the frame rather than as
+depth.
 
 Mode 7 encodes depth as a single bit rather than one of the interleaved slots,
 so its planes take no depth at all.

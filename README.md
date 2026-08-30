@@ -85,24 +85,17 @@ pictures: they are one grid whose cells each belong to one or the other. Giving
 them different depths slides those cells apart, and nothing exists behind the
 gap.
 
-Rather than leave a hole there, the renderer carries the further-back priority a
-little past the cells it owns: every cell bordering it lends its own edge, drawn
-a second time at the further-back depth and clipped to the width the two pull
-apart. Where the two priorities tile one continuous structure -- Super Metroid's
-distant Crateria pillars behind its near terrain, both on BG1 -- the strip shows
-that structure continuing, which is what would actually be there.
+Rather than leave a hole there, **Fill priority gaps** -- on by default --
+extends the nearest tile of the priority that sits further back across each
+boundary, clipped to the width the two pull apart. Where that priority is a
+continuous structure the other one overlaps -- Super Metroid's distant Crateria
+pillars behind its near terrain, both on BG1 -- the strip shows the pillar
+continuing behind the terrain, which is what would actually be there.
 
-What each strip holds is the lending cell's own pixels, at the place they were
-already drawn. That matters more than it sounds. The frame is left exactly as it
-was until a depth actually moves something: nothing is borrowed from a
-neighbouring tile, so nothing unrelated can be smeared into the gap, and a cell
-that was transparent at its edge lends nothing at all. A tile standing clear of
-what is behind it -- a pillar against the sky -- has a real silhouette there, and
-pulling the planes apart uncovers more sky beside it rather than more ground.
-
-It is still an approximation rather than recovery. The strip repeats the edge it
-came from, so a wide split shows a band of doubled texture at the seam. At a few
-pixels wide it reads as a shadowed edge.
+It is an approximation rather than recovery: the strip is invented from the
+nearest tile, so where that tile is unrelated content the band will smear. At a
+few pixels wide it tends to read as a shadowed edge. Switch it off to see the
+gaps as they are.
 
 Two arrangements are left alone. Nothing is drawn when the two priorities share
 a depth, and nothing is drawn when the *high* priority is the one further back,
@@ -165,53 +158,40 @@ Both the greying and the previews come from the frame the game stopped on. A gam
 that changes mode between rooms, or part-way down a frame, will look different
 the next time the menu is opened.
 
-### Edge cropping
+### Crop screen edges
 
 A slot with depth moves sideways between the eyes, so it stops short of one edge
-of one eye and something has to give there. **Edge cropping** decides what.
+of one eye and something has to give there.
 
 The gap itself is not a choice: a layer that has been cut back to the screen and
 then shifted simply runs out at the edge it moved away from. What the setting
-decides is what fills it, and -- for the two *both* choices -- whether the other
-eye gives up the same strip.
+decides is whether the frame keeps that strip or gives it up.
 
-* **Per layer** (the default) cuts each slot's geometry back to the visible
-  screen before the shift moves it. The slot then runs out at one edge over a
-  strip exactly as wide as its own shift, straight down the frame, and whatever
-  sits behind it shows through there. A slot left at `0` keeps the full width
-  whatever its neighbours are set to.
-* **Per layer, both** does the same and then takes the slot's own shift off the
-  other end as well, in both eyes, so a slot ends up covering the same strip of
-  screen in both and only its content slides within it. Nothing is left that one
-  eye can see and the other cannot. It costs a slot twice its shift in width,
-  and costs nothing at all to the slots left at `0`, which still reach both
-  edges.
-* **Whole frame** leaves one strip undrawn per eye instead -- the right eye at
-  its left edge, the left eye at its right -- as wide as the largest shift in
-  the set of sliders the frame was drawn with. Nothing shows through it at all,
-  at the cost of a few pixels from every slot, including the ones that never
-  moved. The width is taken over the whole set rather than over the slots the
-  current mode happens to use: modes inside one set do not all have the same
-  planes, and sizing it by those would change the width of the picture every
-  time a game changed mode. The other set is left out of it, since its depths
-  have no part in this frame.
-* **Whole frame, both** takes that same widest strip off all four edges, so both
-  eyes keep the same window in the same place. It gives up the most picture of
-  the five, and is the only one where the two eyes' pictures are the same width
-  and sit at the same place on the screen: the plain **Whole frame** trims each
-  eye by a wide strip at one edge and a narrow one at the other, which leaves
-  the frame itself carrying a disparity nothing in the scene asked for.
-* **None** draws the tiles anyway. A game keeps its tilemap valid only where it
-  means to draw, so what appears is whatever it last left there: real scenery in
-  a game whose map wraps, unrelated tiles in one that reuses the space. How far
-  a tile hangs over an edge follows that layer's scroll, which HDMA can change
-  from one band of the frame to the next, so the strip can step in and out down
-  the screen.
+**Crop screen edges** is on by default. Every tile is cut back to the visible
+screen before its shift moves it, so a slot runs out over a strip exactly as
+wide as its own shift and nothing the game kept just off-screen can slide into
+view; the finished picture then gives up the widest of those strips at all four
+edges. Both eyes lose the same strip in the same place, so neither is left with
+a region only it can see -- a strip one eye has content in and the other does
+not has nothing to fuse with, and reads as a shimmer along the frame rather than
+as depth. The cost is a few pixels of picture all round, taken from every slot
+including the ones that never moved.
 
-Cutting the tiles back happens while the frame is drawn, so changing to or from
-**None** shows on the next frame the game draws rather than on the paused one.
-The rest are decided as the frame is put on screen and apply to the paused frame
-immediately.
+The width is measured over the whole set of sliders the frame was drawn with,
+not over the slots the current mode happens to use: modes inside one set do not
+all have the same planes, and sizing it by those would change the width of the
+picture every time a game changed mode. The other set is left out of it, since
+its depths have no part in this frame.
+
+Switched off, the tiles a game keeps just outside the screen are drawn as the
+shift carries them in. A game keeps its tilemap valid only where it means to
+draw, so what appears is whatever it last left there: real scenery in a game
+whose map wraps, unrelated tiles in one that reuses the space. How far a tile
+hangs over an edge follows that layer's scroll, which HDMA can change from one
+band of the frame to the next, so the strip can step in and out down the screen.
+
+Cutting the tiles back happens while the frame is drawn, so switching this shows
+on the next frame the game draws rather than on the paused one.
 
 ### Using the sliders
 

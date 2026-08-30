@@ -712,26 +712,11 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, bool pausedOverl
 		img3dsDrawBackground(UI_BG_GAME, paused, xOffset);
 	}
 
-	// In the whole-frame edge mode one strip per eye stands in for every slot's,
-	// so the picture is cut back rather than the geometry.
-	GameScreenViewport eyeViewport = gameScreenViewport;
-
-	if (GPU3DSExt.stereo.windowEdges && !screenshot.dirty) {
-		int maskLeft, maskRight;
-		gpu3dsGetStereoEdgeMask(GPU3DS.activeSide, &maskLeft, &maskRight);
-
-		float pixelsPerTexel = (float)(eyeViewport.sx1 - eyeViewport.sx0) / (eyeViewport.tx1 - eyeViewport.tx0);
-
-		eyeViewport.tx0 += maskLeft;
-		eyeViewport.tx1 -= maskRight;
-		eyeViewport.sx0 += (int)(maskLeft * pixelsPerTexel + 0.5f);
-		eyeViewport.sx1 -= (int)(maskRight * pixelsPerTexel + 0.5f);
-	}
 
 	gpu3dsAddSimpleQuadVertexes(
-		eyeViewport.sx0, eyeViewport.sy0, eyeViewport.sx1, eyeViewport.sy1,
-		eyeViewport.tx0, eyeViewport.ty0,
-		eyeViewport.tx1, eyeViewport.ty1, 0);
+		gameScreenViewport.sx0, gameScreenViewport.sy0, gameScreenViewport.sx1, gameScreenViewport.sy1,
+		gameScreenViewport.tx0, gameScreenViewport.ty0,
+		gameScreenViewport.tx1, gameScreenViewport.ty1, 0);
 
 	// Sample this eye's own copy of the SNES screen.
 	SGPU_TEXTURE_ID snesScreen = GPU3DSExt.stereo.active
@@ -745,8 +730,8 @@ static void impl3dsSceneRenderEye(bool firstFrame, bool paused, bool pausedOverl
 
 	if (balancedFilterEnabled) {
 		gpu3dsAddSimpleQuadVertexes(
-			eyeViewport.sx0, eyeViewport.sy0, eyeViewport.sx1, eyeViewport.sy1,
-			eyeViewport.tx0, eyeViewport.ty0, eyeViewport.tx1, eyeViewport.ty1, 0, 0xFFFFFF88);
+			gameScreenViewport.sx0, gameScreenViewport.sy0, gameScreenViewport.sx1, gameScreenViewport.sy1,
+			gameScreenViewport.tx0, gameScreenViewport.ty0, gameScreenViewport.tx1, gameScreenViewport.ty1, 0, 0xFFFFFF88);
 
 		// Temporarily switch to linear sampling for the blend pass.
 		C3D_TexSetFilter(&GPU3DS.textures[snesScreen].tex, GPU_LINEAR, GPU_LINEAR);
@@ -875,8 +860,6 @@ void impl3dsSceneRender(bool firstFrame, bool paused, bool pausedOverlay) {
     gameScreenViewport.ty0 = static_cast<float>(cropTopSource) + (cropTopSource == 0 ? 0.5f : 0.0f);
     gameScreenViewport.ty1 = static_cast<float>(PPU.ScreenHeight - cropBottomSource) - (cropBottomSource == 0 ? 0.5f : 0.0f);
 
-	bool isFullScreen = gameScreenViewport.sWidth >= settings3DS.GameScreenWidth && gameScreenViewport.cHeight >= SCREEN_HEIGHT;
-	bool drawBackground = !isFullScreen;
 	float iod = gpu3dsGetIOD();
 	bool renderRightEye = iod != 0.0f;
 
@@ -884,13 +867,10 @@ void impl3dsSceneRender(bool firstFrame, bool paused, bool pausedOverlay) {
 		settings3DS.ScreenFilter == Setting::ScreenFilter::Balanced && !screenshot.dirty &&
 		(settings3DS.ScreenStretch != Setting::ScreenStretch::None || settings3DS.Overscan);
 
-	if (drawBackground) {
-		gpu3dsClearScreen(settings3DS.GameScreen, renderRightEye);
-	}
-
 	// While paused the emulator is not producing new frames, but the last
 	// frame's geometry is still in the vertex buffers, so both eyes are
 	// redrawn from it. That makes depth changes in the menu visible live.
+	// It also settles the shifts, which the strip below is measured from.
 	if (paused) {
 		gpu3dsUpdateStereoLayerShiftsForPreview();
 
@@ -898,6 +878,32 @@ void impl3dsSceneRender(bool firstFrame, bool paused, bool pausedOverlay) {
 			gpu3dsDrawSnesScreenForEye(GFX_LEFT);
 			gpu3dsDrawSnesScreenForEye(GFX_RIGHT);
 		}
+	}
+
+	// Cropped edges take the strip off the picture rather than off the
+	// geometry, so the quad narrows and what it no longer covers has to be
+	// cleared. That is what drawBackground decides just below, which is why
+	// the picture is narrowed first: a full-width screen is left uncleared on
+	// the grounds that the game covers every pixel of it, and a cropped one
+	// no longer does.
+	int strip = gpu3dsGetStereoEdgeStrip();
+
+	if (strip > 0) {
+		float pixelsPerTexel = (float)gameScreenViewport.sWidth / (gameScreenViewport.tx1 - gameScreenViewport.tx0);
+		int stripPx = (int)(strip * pixelsPerTexel + 0.5f);
+
+		gameScreenViewport.tx0 += strip;
+		gameScreenViewport.tx1 -= strip;
+		gameScreenViewport.sx0 += stripPx;
+		gameScreenViewport.sx1 -= stripPx;
+		gameScreenViewport.sWidth -= stripPx * 2;
+	}
+
+	bool isFullScreen = gameScreenViewport.sWidth >= settings3DS.GameScreenWidth && gameScreenViewport.cHeight >= SCREEN_HEIGHT;
+	bool drawBackground = !isFullScreen;
+
+	if (drawBackground) {
+		gpu3dsClearScreen(settings3DS.GameScreen, renderRightEye);
 	}
 
 	GPU3DS.activeSide = GFX_LEFT;

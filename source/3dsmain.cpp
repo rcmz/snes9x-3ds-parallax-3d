@@ -631,19 +631,6 @@ std::vector<SMenuItem> makeOptionsForStretch() {
     return items;
 }
 
-std::vector<SMenuItem> makeOptionsForDepth3DEdges() {
-    std::vector<SMenuItem> items;
-    items.reserve(5);
-
-    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::Layer), "Per layer"_s,               "Crop layers individually"_s);
-    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::LayerBoth), "Per layer, both"_s,     "Crop each layer at both edges"_s);
-    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::Frame), "Whole frame"_s,             "Crop all layers by the max amount"_s);
-    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::FrameBoth), "Whole frame, both"_s,   "Crop the frame at both edges"_s);
-    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::None), "None"_s,                     "Use off-screen tiles"_s);
-
-    return items;
-}
-
 std::vector<SMenuItem> makeOptionsForEnhancedResolution() {
     std::vector<SMenuItem> items;
     items.reserve(3);
@@ -871,18 +858,19 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
     }
 
     // What a slot's shift leaves behind at the screen edge. Cutting the tiles
-    // back is decided while the frame is drawn, so a change to or from "None"
-    // shows on the next frame the game draws rather than on the paused one.
-    AddMenuPicker(items, "  Edge cropping"_s,
-        // Three lines is what the dialog has room for, and each has to fit a
-        // line on its own or it wraps and pushes the rest off the bottom.
-        "How to crop shifted layer edges."_s,
-        makeOptionsForDepth3DEdges(),
-        static_cast<int>(settings3DS.Depth3DEdges), DIALOG_TYPE_INFO, true,
+    // back is decided while the frame is drawn, so switching this shows on the
+    // next frame the game draws rather than on the paused one.
+    AddMenuCheckbox(items, "  Crop screen edges"_s, settings3DS.Depth3DCropEdges,
         []( int val ) {
-            if (CheckAndUpdate(settings3DS.Depth3DEdges, static_cast<Setting::Depth3DEdges>(val))) {
+            if (CheckAndUpdateToggle(settings3DS.Depth3DCropEdges, val))
                 menu3dsSetScreenDirty();
-            }
+        });
+
+    // Same: the fill is built into the frame as it is drawn.
+    AddMenuCheckbox(items, "  Fill priority gaps"_s, settings3DS.Depth3DFillGaps,
+        []( int val ) {
+            if (CheckAndUpdateToggle(settings3DS.Depth3DFillGaps, val))
+                menu3dsSetScreenDirty();
         });
 
     // The two arrangements stack their planes differently, so each keeps its
@@ -1458,7 +1446,20 @@ bool settingsReadWriteFullListByGame(bool writeMode)
     // this fork writes.
     if (writeMode || detectedConfigVersion >= 2.0f) {
         config3dsReadWriteEnum(stream, writeMode, "Depth3DEnabled=%d\n", &settings3DS.Depth3DEnabled, 0, 1);
-        config3dsReadWriteEnum(stream, writeMode, "Depth3DEdges=%d\n", &settings3DS.Depth3DEdges, 0, 4);
+
+        // Edge cropping was a five-way choice before it became a switch. The
+        // key keeps its name, its place in the file and its old numbering,
+        // because the list is read in order and a name that does not match
+        // stops the read there and loses every setting after it. Off is what
+        // the old "None" was; on writes what the old "whole frame, both edges"
+        // was, and every other old value means some kind of cropping, so it
+        // comes back on.
+        const int EDGES_OFF = 2;
+        const int EDGES_ON = 4;
+
+        int edges = settings3DS.Depth3DCropEdges ? EDGES_ON : EDGES_OFF;
+        config3dsReadWriteInt32(stream, writeMode, "Depth3DEdges=%d\n", &edges, 0, 4);
+        settings3DS.Depth3DCropEdges = edges != EDGES_OFF;
 
         static const char *depth3DKey[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT] = {
             {
@@ -1485,6 +1486,13 @@ bool settingsReadWriteFullListByGame(bool writeMode)
                     &settings3DS.Depth3D[family][slot], -DEPTH3D_MAX, DEPTH3D_MAX);
             }
         }
+    }
+
+    // A key added after 2.0, so a file written then does not have the line and
+    // must not be read for one: the list is read in order, and reading past a
+    // line that is not there loses everything below it.
+    if (writeMode || detectedConfigVersion >= 2.1f) {
+        config3dsReadWriteEnum(stream, writeMode, "Depth3DFillGaps=%d\n", &settings3DS.Depth3DFillGaps, 0, 1);
     }
 
     config3dsReadWriteInt32(stream, writeMode, "Frameskips=%d\n", &settings3DS.MaxFrameSkips, 0, 4);

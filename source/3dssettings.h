@@ -172,22 +172,6 @@ namespace Setting {
         High,
     };
 
-    // What to do with the strip a slot with stereo depth leaves at one screen
-    // edge when its shift moves it away from that edge.
-    //
-    // The first three leave that strip where the shift put it, which is one
-    // edge in the left eye and the other edge in the right. The eye that still
-    // has content there has nothing to fuse it with, so the strip reads as a
-    // shimmer along the frame rather than as depth. The two "both edges"
-    // choices take the same strip out of both eyes instead, so what is left is
-    // what the two eyes agree on.
-    enum class Depth3DEdges {
-        Layer,          // cut each slot back to the screen, so its strip is its own shift wide
-        Frame,          // one strip per eye instead, as wide as the largest shift in the frame's own set of sliders
-        None,           // neither: the tiles a game leaves just off-screen come into view
-        LayerBoth,      // as Layer, but each slot gives up its own shift at both edges, in both eyes
-        FrameBoth,      // as Frame, but one strip of the same width at both edges, in both eyes
-    };
 
     enum class EnhancedResolution {
         Off,         // native 256px render
@@ -293,7 +277,12 @@ typedef struct {
     bool                Depth3DEnabled;         // Per-layer stereoscopic depth: give each SNES plane
                                                 // its own depth instead of a flat game screen.
 
-    Setting::Depth3DEdges Depth3DEdges;     // What the screen edges do with a shifted slot's strip.
+    bool                Depth3DCropEdges;       // Take the widest shift off all four screen edges,
+                                                // so neither eye is left with a strip only it can see.
+
+    bool                Depth3DFillGaps;        // Close the strip a background's two priorities
+                                                // uncover between them when they sit at different
+                                                // depths, by carrying the further-back one across it.
 
     s8                  Depth3D[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT];
                                                 // Depth of each plane-and-priority slot, per

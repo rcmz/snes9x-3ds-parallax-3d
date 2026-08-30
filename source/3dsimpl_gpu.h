@@ -234,27 +234,19 @@ typedef struct
     // true when at least one layer has a non-zero shift this frame
     bool            active;
 
-    // How the screen edges are handled, resolved from settings3DS.Depth3DEdges
-    // once a frame so the hot paths do not read the setting themselves.
-    // clipTiles cuts every tile back to the screen before the shift moves it;
-    // windowEdges leaves a strip of the picture undrawn instead. Neither is set
-    // when the tiles a game keeps just off-screen are wanted as they are.
-    //
-    // bothEdges makes whichever of the two is in force take its strip out of
-    // both eyes at both edges rather than out of one eye at one edge: the
-    // frame-wide strip becomes the same width all round, and slotWindow below
-    // does the same for a slot's own strip.
-    bool            clipTiles;
-    bool            windowEdges;
-    bool            bothEdges;
+    // Whether the screen edges are cropped, resolved from
+    // settings3DS.Depth3DCropEdges once a frame so the hot paths do not read
+    // the setting themselves. It does two things at once: every tile is cut
+    // back to the screen before the shift moves it, so a slot's strip is its
+    // own shift wide and holds nothing the game kept off-screen, and the
+    // finished picture then gives up the widest of those strips at all four
+    // edges. Off, the tiles a game keeps just outside the screen come into
+    // view as the shift carries them in.
+    bool            cropEdges;
 
-    // Whether the tile shaders hold each slot inside a window once its shift
-    // has moved it: the render target, less that slot's own shift at each end.
-    // The window is the same for both eyes, so only the slot's content slides
-    // within it. Set only by the per-layer both-edges mode; the frame-wide one
-    // takes its strip off the finished picture instead, which costs the tile
-    // path nothing.
-    bool            slotWindow;
+    // Whether a background's two priorities close the strip between them when
+    // they sit at different depths. Resolved once a frame for the same reason.
+    bool            fillGaps;
 
     // While >= 0, only the tiles belonging to that configurable slot are drawn:
     // every other slot is pushed off the side of the screen. Used to render the
@@ -306,8 +298,8 @@ void gpu3dsSetDepthSlotIsolation(int slot);
 void gpu3dsUpdateStereoLayerShiftsForPreview();
 
 //---------------------------------------------------------
-// Width, in SNES pixels, of the strip an eye leaves undrawn at
-// each screen edge, for the whole-frame edge mode.
+// Width, in SNES pixels, of the strip the finished picture gives
+// up at each of its four edges when the edges are cropped.
 //
 // One strip stands for every slot, so it has to cover the largest
 // shift in either direction. It is bounded over every slot of the
@@ -320,29 +312,21 @@ void gpu3dsUpdateStereoLayerShiftsForPreview();
 // the one the game is not in has no part in this frame at all. A
 // frame that changes arrangement part-way down uses both.
 //
-// Which edge of which eye that strip belongs to is what the two
-// whole-frame modes disagree about. The plain one gives each eye
-// only the strip its own shifts opened, which is a wide strip at
-// one edge and a narrow one at the other, mirrored between the
-// eyes: the two pictures then end up different widths and sit at
-// different places on the screen, and the frame itself carries a
-// disparity nothing in the scene asked for. The both-edges one
-// takes the widest strip off all four edges, so both eyes are
-// left with the same window in the same place and only the
-// content inside it differs.
+// The same strip comes off both edges of both eyes, so the eye
+// being drawn does not come into it. Taking only the strip each
+// eye's own shifts opened would be narrower, but it would leave
+// the two pictures different widths in different places, and the
+// frame itself would carry a disparity nothing in the scene
+// asked for.
 //---------------------------------------------------------
-static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *right)
+static inline int gpu3dsGetStereoEdgeStrip()
 {
     const SStereoLayerState *stereo = &GPU3DSExt.stereo;
 
-    *left = 0;
-    *right = 0;
+    if (!stereo->cropEdges)
+        return 0;
 
-    if (!stereo->windowEdges)
-        return;
-
-    int shiftMax = 0;
-    int shiftMin = 0;
+    int strip = 0;
 
     for (int family = 0; family < DEPTH3D_FAMILY_COUNT; family++) {
         if (!(stereo->familiesDrawn & (1 << family)))
@@ -354,56 +338,34 @@ static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *rig
         for (int i = 0; i < slotCount; i++) {
             int shift = stereo->slotShift[family][slots[i]];
 
-            if (shift > shiftMax) shiftMax = shift;
-            if (shift < shiftMin) shiftMin = shift;
+            if (shift < 0) shift = -shift;
+            if (shift > strip) strip = shift;
         }
     }
 
-    if (stereo->bothEdges) {
-        // The same window for both eyes, so the side being drawn does not come
-        // into it: whichever direction a slot went, its strip is inside this.
-        int strip = shiftMax > -shiftMin ? shiftMax : -shiftMin;
-
-        *left = strip;
-        *right = strip;
-
-        return;
-    }
-
-    int eye = side == GFX_RIGHT ? 1 : -1;
-
-    int pulledFromLeft = eye > 0 ? shiftMax : -shiftMin;
-    int pulledFromRight = eye > 0 ? -shiftMin : shiftMax;
-
-    *left = pulledFromLeft > 0 ? pulledFromLeft : 0;
-    *right = pulledFromRight > 0 ? pulledFromRight : 0;
+    return strip;
 }
 
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
 
-// How many cells a priority boundary's strip can reach across.
-// A cell lends at most its own eight pixels, and the strip is at
-// widest the two depths at opposite ends of their travel.
-#define PRIORITY_FILL_MAX_CELLS     ((2 * DEPTH3D_SHIFT_MAX + 7) / 8)
-
 //---------------------------------------------------------
 // How far a background's two tile priorities pull apart, in
 // pixels, when the low priority is the one sitting further back.
+// Zero when the gaps between them are not being filled.
 //
-// Only the priority that is further back can be carried into the
-// gap between them. The low priority can, because it draws behind
-// the high one: the copy that is not the one uncovered this eye
-// lands behind a high-priority cell and is hidden wherever that
-// cell is opaque. The opposite arrangement -- the high priority
-// further back -- would have to paint its copy over the low
-// priority, since the hardware still composites it in front, and
-// that costs more than the gap does. So it is left alone.
+// Only the priority that is further back can sensibly continue
+// into the gap between them, and extending the low priority is
+// safe because it also draws behind the high one, so the fill
+// stays hidden wherever the high priority is opaque. The
+// opposite arrangement -- the high priority further back -- would
+// have to paint over the low priority to fill anything, which
+// would cost more than the gap does, so it is left alone.
 //---------------------------------------------------------
 static inline int gpu3dsGetPriorityFillWidth(int bg, int family)
 {
     const SStereoLayerState *stereo = &GPU3DSExt.stereo;
 
-    if (!stereo->active)
+    if (!stereo->active || !stereo->fillGaps)
         return 0;
 
     int lowShift = stereo->slotShift[family][DEPTH3D_BG_SLOT(bg, 0)];
@@ -629,7 +591,7 @@ inline void __attribute__((always_inline)) gpu3dsAddTileVertexes(
     s16 tx0, s16 ty0, s16 tx1, s16 ty1,
     s16 z)
 {
-    if (GPU3DSExt.stereo.clipTiles && !gpu3dsClipTileToScreen(x0, x1, tx0, tx1))
+    if (GPU3DSExt.stereo.cropEdges && !gpu3dsClipTileToScreen(x0, x1, tx0, tx1))
         return;
 
     SVertexList *list = &GPU3DS.vertices[VBO_SCENE_TILE];
