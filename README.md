@@ -85,16 +85,24 @@ pictures: they are one grid whose cells each belong to one or the other. Giving
 them different depths slides those cells apart, and nothing exists behind the
 gap.
 
-Rather than leave a hole there, the renderer extends the nearest tile of the
-priority that sits further back across each boundary, clipped to the width the
-two pull apart. Where that priority is a continuous structure the other one
-overlaps -- Super Metroid's distant Crateria pillars behind its near terrain,
-both on BG1 -- the strip shows the pillar continuing behind the terrain, which
-is what would actually be there.
+Rather than leave a hole there, the renderer carries the further-back priority a
+little past the cells it owns: every cell bordering it lends its own edge, drawn
+a second time at the further-back depth and clipped to the width the two pull
+apart. Where the two priorities tile one continuous structure -- Super Metroid's
+distant Crateria pillars behind its near terrain, both on BG1 -- the strip shows
+that structure continuing, which is what would actually be there.
 
-It is an approximation rather than recovery: the strip is invented from the
-nearest tile, so where that tile is unrelated content the band will smear. At a
-few pixels wide it tends to read as a shadowed edge.
+What each strip holds is the lending cell's own pixels, at the place they were
+already drawn. That matters more than it sounds. The frame is left exactly as it
+was until a depth actually moves something: nothing is borrowed from a
+neighbouring tile, so nothing unrelated can be smeared into the gap, and a cell
+that was transparent at its edge lends nothing at all. A tile standing clear of
+what is behind it -- a pillar against the sky -- has a real silhouette there, and
+pulling the planes apart uncovers more sky beside it rather than more ground.
+
+It is still an approximation rather than recovery. The strip repeats the edge it
+came from, so a wide split shows a band of doubled texture at the seam. At a few
+pixels wide it reads as a shadowed edge.
 
 Two arrangements are left alone. Nothing is drawn when the two priorities share
 a depth, and nothing is drawn when the *high* priority is the one further back,
