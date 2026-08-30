@@ -867,7 +867,7 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         });
 
     // Same: the fill is built into the frame as it is drawn.
-    AddMenuCheckbox(items, "  Fill priority gaps"_s, settings3DS.Depth3DFillGaps,
+    AddMenuCheckbox(items, "  Fill background gaps"_s, settings3DS.Depth3DFillGaps,
         []( int val ) {
             if (CheckAndUpdateToggle(settings3DS.Depth3DFillGaps, val))
                 menu3dsSetScreenDirty();

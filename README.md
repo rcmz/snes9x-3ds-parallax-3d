@@ -78,6 +78,21 @@ the interface on priority 1, the rain on priority 0. One depth per plane forces
 them together; one depth per slot lets the interface float in front while the
 rain sits back in the scene.
 
+### Where the list stops being the answer
+
+That order is the order the *main screen* composites in, and it is not the only
+way a plane reaches the picture. A plane the game designates to the sub screen
+does not take a place in that stack at all: colour math adds it to the finished
+main-screen colour, so it lands over everything regardless of the slot it holds.
+Windows can hand a band of the screen to the sub screen the same way. Super
+Metroid uses BG3 prio 0 like this -- a slot near the back of the list, drawing
+cloud and haze effects that read as being in front of the whole scene.
+
+So the list is where to start, not where to finish. A slot that arrives through
+colour math wants the depth its content looks like it should have, which may be
+the opposite end of the stack from where its slider sits. Judge it against the
+paused frame and trust that over the ordering.
+
 ### Splitting a background's two priorities
 
 A background stores one tile per cell, so its two priorities are not two
@@ -85,7 +100,7 @@ pictures: they are one grid whose cells each belong to one or the other. Giving
 them different depths slides those cells apart, and nothing exists behind the
 gap.
 
-Rather than leave a hole there, **Fill priority gaps** -- on by default --
+Rather than leave a hole there, **Fill background gaps** -- on by default --
 extends the nearest tile of the priority that sits further back across each
 boundary, clipped to the width the two pull apart. Where that priority is a
 continuous structure the other one overlaps -- Super Metroid's distant Crateria
