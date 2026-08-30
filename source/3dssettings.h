@@ -174,10 +174,19 @@ namespace Setting {
 
     // What to do with the strip a slot with stereo depth leaves at one screen
     // edge when its shift moves it away from that edge.
+    //
+    // The first three leave that strip where the shift put it, which is one
+    // edge in the left eye and the other edge in the right. The eye that still
+    // has content there has nothing to fuse it with, so the strip reads as a
+    // shimmer along the frame rather than as depth. The two "both edges"
+    // choices take the same strip out of both eyes instead, so what is left is
+    // what the two eyes agree on.
     enum class Depth3DEdges {
-        Layer,      // cut each slot back to the screen, so its strip is its own shift wide
-        Frame,      // one strip per eye instead, as wide as the largest shift in the frame's own set of sliders
-        None,       // neither: the tiles a game leaves just off-screen come into view
+        Layer,          // cut each slot back to the screen, so its strip is its own shift wide
+        Frame,          // one strip per eye instead, as wide as the largest shift in the frame's own set of sliders
+        None,           // neither: the tiles a game leaves just off-screen come into view
+        LayerBoth,      // as Layer, but each slot gives up its own shift at both edges, in both eyes
+        FrameBoth,      // as Frame, but one strip of the same width at both edges, in both eyes
     };
 
     enum class EnhancedResolution {

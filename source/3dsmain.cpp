@@ -633,11 +633,13 @@ std::vector<SMenuItem> makeOptionsForStretch() {
 
 std::vector<SMenuItem> makeOptionsForDepth3DEdges() {
     std::vector<SMenuItem> items;
-    items.reserve(3);
+    items.reserve(5);
 
-    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::Layer), "Per layer"_s,       "Crop layers individually"_s);
-    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::Frame), "Whole frame"_s,     "Crop all layers by the max amount"_s);
-    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::None), "None"_s,             "Use off-screen tiles"_s);
+    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::Layer), "Per layer"_s,               "Crop layers individually"_s);
+    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::LayerBoth), "Per layer, both"_s,     "Crop each layer at both edges"_s);
+    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::Frame), "Whole frame"_s,             "Crop all layers by the max amount"_s);
+    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::FrameBoth), "Whole frame, both"_s,   "Crop the frame at both edges"_s);
+    AddMenuDialogOption(items, static_cast<int>(Setting::Depth3DEdges::None), "None"_s,                     "Use off-screen tiles"_s);
 
     return items;
 }
@@ -1456,7 +1458,7 @@ bool settingsReadWriteFullListByGame(bool writeMode)
     // this fork writes.
     if (writeMode || detectedConfigVersion >= 2.0f) {
         config3dsReadWriteEnum(stream, writeMode, "Depth3DEnabled=%d\n", &settings3DS.Depth3DEnabled, 0, 1);
-        config3dsReadWriteEnum(stream, writeMode, "Depth3DEdges=%d\n", &settings3DS.Depth3DEdges, 0, 2);
+        config3dsReadWriteEnum(stream, writeMode, "Depth3DEdges=%d\n", &settings3DS.Depth3DEdges, 0, 4);
 
         static const char *depth3DKey[DEPTH3D_FAMILY_COUNT][DEPTH3D_SLOT_COUNT] = {
             {

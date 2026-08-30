@@ -587,11 +587,26 @@ void gpu3dsUpdateStereoLayerShiftsForPreview() {
 //---------------------------------------------------------
 // Hands the tile shader the horizontal shift for every depth
 // slot, so each plane-and-priority can sit at its own depth
-// without splitting the frame into more draw calls.
+// without splitting the frame into more draw calls, and the
+// window a shifted slot is held inside once it has moved.
 //---------------------------------------------------------
 static void gpu3dsUploadDepthSlotOffsets() {
     const SStereoLayerState *stereo = &GPU3DSExt.stereo;
     int loc = GPU3DS.shaderULocs[ULOC_SLOT_OFFSET];
+    int windowLoc = GPU3DS.shaderULocs[ULOC_SLOT_WINDOW];
+
+    // Closed, the window is the render target itself and the shader takes each
+    // slot's own shift off both ends of it. Open, it is wider than anything the
+    // frame can reach, which leaves every tile where the rest of the pipeline
+    // put it. The target's width is only settled while the frame is drawn, so
+    // it is read here rather than when the shifts were worked out.
+    if (windowLoc >= 0) {
+        C3D_FVUnifSet(GPU_GEOMETRY_SHADER, windowLoc,
+            stereo->slotWindow ? 0.0f : -4096.0f,
+            stereo->slotWindow ? (float)GPU3DSExt.renderWidth : 4096.0f,
+            stereo->slotWindow ? 1.0f : 0.0f,
+            0.0f);
+    }
 
     if (loc < 0)
         return;
@@ -671,6 +686,8 @@ void gpu3dsUpdateStereoLayerShifts() {
     stereo->eye = 0;
     stereo->clipTiles = false;
     stereo->windowEdges = false;
+    stereo->bothEdges = false;
+    stereo->slotWindow = false;
 
     // The shift is added to vertex positions in target pixels, and the 512px
     // render path draws the frame at twice the scale, so every depth would come
@@ -703,9 +720,16 @@ void gpu3dsUpdateStereoLayerShifts() {
     if (!anyShift)
         return;
 
+    Setting::Depth3DEdges edges = settings3DS.Depth3DEdges;
+
     stereo->active = true;
-    stereo->clipTiles = settings3DS.Depth3DEdges != Setting::Depth3DEdges::None;
-    stereo->windowEdges = settings3DS.Depth3DEdges == Setting::Depth3DEdges::Frame;
+    stereo->clipTiles = edges != Setting::Depth3DEdges::None;
+    stereo->windowEdges = edges == Setting::Depth3DEdges::Frame
+        || edges == Setting::Depth3DEdges::FrameBoth;
+    stereo->bothEdges = edges == Setting::Depth3DEdges::LayerBoth
+        || edges == Setting::Depth3DEdges::FrameBoth;
+
+    stereo->slotWindow = edges == Setting::Depth3DEdges::LayerBoth;
 }
 
 void gpu3dsCommitLayerSection(SGPU_VBO_ID vboId, LAYER_ID id, SGPURenderState *state, bool sub, bool reuseVertices) {

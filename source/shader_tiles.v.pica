@@ -22,6 +22,13 @@
 ; Outputs
 .out        outpos      position
 .out        outtex      texcoord0
+                                ; z carries how far this vertex's slot was shifted, without
+                                ; its sign, for the geometry shader's edge window. The tile
+                                ; paths only ever read x and y, so the component is free, and
+                                ; the shift has to travel with the vertex because the shader
+                                ; that sees whole quads has no slot to look one up by.
+                                ; Vertices that never reach a slot leave it far negative,
+                                ; which opens the window rather than closing it on them.
 .out        outcol      color
 
 ; Inputs (defined as aliases for convenience)
@@ -44,6 +51,7 @@
 .proc vmain
     mov     r0, inpos
     mov     r10, intex
+    mov     r10.z, -c_tex.yyyy          ; no slot reached yet, so no window
 
     mov     r1, c_base
     mov     r2, c_tex
@@ -100,7 +108,9 @@ depth_computation:
     mad     r0.y, r0.z, r1.y, r0.y      ; r0.y = r0.y + r0.z * (-256) = r0.y - floor(r0.y / 256) * 256
 
     mova    a0.x, r0.z                  ; shift this slot for the eye being drawn
-    add     r0.x, slotOffset[a0.x].x, r0.x
+    mov     r5, slotOffset[a0.x]
+    add     r0.x, r5.x, r0.x
+    max     r10.z, r5.xxxx, -r5.xxxx    ; how much the slot gives up at each edge
 
     mul     r0.z, r0.z, r1.x            ; r0.z = r0.z / 16
 

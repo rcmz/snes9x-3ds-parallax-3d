@@ -1,6 +1,16 @@
 ; Uniforms
 .fvec       projection[4]       ; #0 - 3
 .fvec       textureScale        ; #4
+.fvec       slotWindow          ; #5
+                                ; x = left edge, y = right edge, in render target pixels
+                                ; z = 1 while the window is in force, 0 otherwise
+                                ;
+                                ; A quad is held inside this window, less the shift its own
+                                ; slot was given, once that shift has already moved it. The
+                                ; window itself is the same for both eyes, so each slot ends
+                                ; up covering the same strip of screen in both and only its
+                                ; content slides within it -- which is the whole point: a
+                                ; strip only one eye can see has nothing to fuse with.
 
 ; Constants
 .constf c_base          (0.004032258064516, 1, -1, 0.00395) ; x: 5-bit color conversion
@@ -24,7 +34,52 @@
     mov     r7, c_base
     mov     outpos.w, r7.y              ; required for citra
 
-    mov     r10.xyz, v0
+    ; The two corners and their texture coordinates, taken as they arrive so
+    ; the window below can pull them in before anything is projected.
+    mov     r5, v0
+    mov     r6, v3
+    mov     r11, v1
+    mov     r12, v4
+
+    cmp     slotWindow.zzzz, lt, lt, r7.yyyy    ; window not in force?
+    jmpc    cmp.x, projection_setup
+
+    ; The slot's own shift, carried in z by both corners. A vertex that never
+    ; reached a slot left it far negative, which widens the window past
+    ; anything the frame can reach instead of closing it: mode 7 draws its
+    ; lines with such a vertex, and its geometry is the screen already.
+    min     r9.x, r11.zzzz, r12.zzzz
+    add     r8.x, slotWindow.xxxx, r9.xxxx
+    add     r8.y, slotWindow.yyyy, -r9.xxxx
+
+    ; Where the texture has to follow the geometry to. A tile is at least one
+    ; pixel wide, and a quad does not always carry one texel per pixel -- a
+    ; mosaic block stretches one texel over the block, and the hi-res path
+    ; packs seven texels into four pixels -- so the span is measured rather
+    ; than assumed.
+    add     r9.y, r6.xxxx, -r5.xxxx     ; width in pixels
+    rcp     r9.z, r9.yyyy
+    add     r9.w, r12.xxxx, -r11.xxxx   ; width in texels
+
+    ; Both ends into the window, and the texture coordinates with them. Each
+    ; end is held against both edges, not just the near one: a quad lying
+    ; wholly outside would otherwise come back with its ends crossed, and a
+    ; quad wound backwards still rasterises. Held against both, such a quad
+    ; ends up with both ends on the same edge and covers nothing.
+    max     r13.x, r5.xxxx, r8.xxxx
+    min     r13.x, r13.xxxx, r8.yyyy
+    min     r13.y, r6.xxxx, r8.yyyy
+    max     r13.y, r13.yyyy, r8.xxxx
+    add     r13.z, r13.xxxx, -r5.xxxx
+    add     r13.w, r13.yyyy, -r6.xxxx
+    mul     r13.zw, r9.zzzz, r13
+    mad     r11.x, r13.zzzz, r9.wwww, r11.xxxx
+    mad     r12.x, r13.wwww, r9.wwww, r12.xxxx
+    mov     r5.x, r13.xxxx
+    mov     r6.x, r13.yyyy
+
+projection_setup:
+    mov     r10.xyz, r5
     mov     r10.w, r7.y
 
     ; outpos = projection * in.pos
@@ -34,12 +89,12 @@
     dp4     r0.w, projection[3], r10
 
     ; outtex = in.texcoord
-    mul     r1, textureScale, v1
+    mul     r1, textureScale, r11
 
 	; outcol = RGBA8_TO_FLOAT4(in.color)
 	mul 	r2, r7.xxxx, v2
 
-    mov     r10.xyz, v3
+    mov     r10.xyz, r6
 
     ; outpos = projection * in.pos
     dp4     r3.x, projection[0], r10
@@ -48,7 +103,7 @@
     dp4     r3.w, projection[3], r10
 
     ; outtex = in.texcoord
-    mul     r4, textureScale, v4
+    mul     r4, textureScale, r12
 
     cmp     r3.y, lt, lt, r7.z          ; if (r3.y (after projection) < -1) then
     jmpc    cmp.x, mode7

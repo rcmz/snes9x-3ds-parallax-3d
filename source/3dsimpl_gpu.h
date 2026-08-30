@@ -237,10 +237,24 @@ typedef struct
     // How the screen edges are handled, resolved from settings3DS.Depth3DEdges
     // once a frame so the hot paths do not read the setting themselves.
     // clipTiles cuts every tile back to the screen before the shift moves it;
-    // windowEdges leaves one strip undrawn per eye instead. Neither is set when
-    // the tiles a game keeps just off-screen are wanted as they are.
+    // windowEdges leaves a strip of the picture undrawn instead. Neither is set
+    // when the tiles a game keeps just off-screen are wanted as they are.
+    //
+    // bothEdges makes whichever of the two is in force take its strip out of
+    // both eyes at both edges rather than out of one eye at one edge: the
+    // frame-wide strip becomes the same width all round, and slotWindow below
+    // does the same for a slot's own strip.
     bool            clipTiles;
     bool            windowEdges;
+    bool            bothEdges;
+
+    // Whether the tile shaders hold each slot inside a window once its shift
+    // has moved it: the render target, less that slot's own shift at each end.
+    // The window is the same for both eyes, so only the slot's content slides
+    // within it. Set only by the per-layer both-edges mode; the frame-wide one
+    // takes its strip off the finished picture instead, which costs the tile
+    // path nothing.
+    bool            slotWindow;
 
     // While >= 0, only the tiles belonging to that configurable slot are drawn:
     // every other slot is pushed off the side of the screen. Used to render the
@@ -305,6 +319,17 @@ void gpu3dsUpdateStereoLayerShiftsForPreview();
 // two arrangements stay separate, because a depth belonging to
 // the one the game is not in has no part in this frame at all. A
 // frame that changes arrangement part-way down uses both.
+//
+// Which edge of which eye that strip belongs to is what the two
+// whole-frame modes disagree about. The plain one gives each eye
+// only the strip its own shifts opened, which is a wide strip at
+// one edge and a narrow one at the other, mirrored between the
+// eyes: the two pictures then end up different widths and sit at
+// different places on the screen, and the frame itself carries a
+// disparity nothing in the scene asked for. The both-edges one
+// takes the widest strip off all four edges, so both eyes are
+// left with the same window in the same place and only the
+// content inside it differs.
 //---------------------------------------------------------
 static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *right)
 {
@@ -332,6 +357,17 @@ static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *rig
             if (shift > shiftMax) shiftMax = shift;
             if (shift < shiftMin) shiftMin = shift;
         }
+    }
+
+    if (stereo->bothEdges) {
+        // The same window for both eyes, so the side being drawn does not come
+        // into it: whichever direction a slot went, its strip is inside this.
+        int strip = shiftMax > -shiftMin ? shiftMax : -shiftMin;
+
+        *left = strip;
+        *right = strip;
+
+        return;
     }
 
     int eye = side == GFX_RIGHT ? 1 : -1;
