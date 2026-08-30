@@ -92,6 +92,14 @@ public:
     // -1 on every other row.
     int     PreviewSlot = -1;
 
+    // The value X puts back, on the rows that name one. A depth slider is
+    // worth a lot of presses to walk back to its neutral, and the neutral is
+    // the value you want whenever a slot turns out to want no depth at all.
+    // Rows that leave this unset ignore X, so it stays the file tab's context
+    // menu everywhere else.
+    bool    HasResetValue = false;
+    int     ResetValue = 0;
+
     // Set on a Disabled row that the cursor should still land on, because it
     // belongs to the list rather than labelling it. The backdrop is one: it
     // has a place in the stack and a picture, but no depth to give it.

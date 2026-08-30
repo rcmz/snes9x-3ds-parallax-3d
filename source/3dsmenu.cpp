@@ -55,11 +55,24 @@ static void menu3dsGetDialogLayout(int& topHeight, int& bottomHeight)
     }
 }
 
+// Which of the buttons below a row is, so the bar can ask about it by name
+// rather than by comparing its label.
+enum {
+    BOTTOM_BUTTON_SELECT,
+    BOTTOM_BUTTON_BACK,
+    BOTTOM_BUTTON_OPTIONS,
+    BOTTOM_BUTTON_PAGE,
+    BOTTOM_BUTTON_RESET,
+};
+
 MenuButton bottomMenuButtons[] = {
     {"Select", "\x0cc", 0x800d1d},
     {"Back", "\x0cd", 0x999409},
     {"Options", "\x0ce", 0x0d5280},
-    {"Page \x0d1", "\x0cf", 0x0d8014}
+    {"Page \x0d1", "\x0cf", 0x0d8014},
+    // Reset shares X with Options. Only the file tab offers Options and only a
+    // row naming a neutral value offers Reset, so the bar never wants both.
+    {"Reset", "\x0ce", 0x0d5280},
 };
 
 
@@ -207,6 +220,17 @@ bool menu3dsHasHighlightableItems(SMenuTab *currentTab) {
     }
 
     return hasSelectableItems;
+}
+
+// Whether the row under the cursor names a value X puts back. What the bottom
+// bar offers follows the row rather than the tab, because the depth tab mixes
+// sliders that reset with switches and a picker that do not.
+bool menu3dsSelectedItemIsResettable(SMenuTab *currentTab) {
+    if (currentTab->SelectedItemIndex < 0 ||
+        currentTab->SelectedItemIndex >= static_cast<int>(currentTab->MenuItems.size()))
+        return false;
+
+    return currentTab->MenuItems[currentTab->SelectedItemIndex].HasResetValue;
 }
 
 //---------------------------------------------------------
@@ -607,13 +631,31 @@ void menu3dsDrawMenu(std::vector<SMenuTab>& menuTabs, int& currentMenuTab, int m
     int bottomMenuPosX = 10;
     int buttonColor = settings3DS.Theme == Setting::Theme::Original ? 0x529eeb : 0x555555;
 
-    for (const auto& button : bottomMenuButtons) {
+    for (size_t b = 0; b < sizeof(bottomMenuButtons) / sizeof(bottomMenuButtons[0]); b++) {
+        const MenuButton& button = bottomMenuButtons[b];
+
+        bool showButton;
+        switch (b) {
+            case BOTTOM_BUTTON_OPTIONS:
+            case BOTTOM_BUTTON_PAGE:
+                showButton = menu3dsIsFileTab(currentMenuTab, menuTabs);
+                break;
+            // Only offered where it does something, so the bar says what the
+            // selected row answers to rather than what the tab might.
+            case BOTTOM_BUTTON_RESET:
+                showButton = menu3dsSelectedItemIsResettable(currentTab);
+                break;
+            default:
+                showButton = true;
+                break;
+        }
+
         if (settings3DS.Theme == Setting::Theme::DarkMode) {
             // multi color buttons for dark mode theme
             buttonColor = button.color;
         }
-        
-        if ((strcmp(button.label, "Options") != 0 && strcmp(button.label, "Page \x0d1") != 0) || menu3dsIsFileTab(currentMenuTab, menuTabs)) {
+
+        if (showButton) {
             ui3dsDrawRect(bottomMenuPosX + 2, SCREEN_HEIGHT - 13, bottomMenuPosX + 9, SCREEN_HEIGHT - 5,0xffffff);
             bottomMenuPosX = ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, bottomMenuPosX, SCREEN_HEIGHT - 16, bottomMenuPosX + 12, SCREEN_HEIGHT, buttonColor, HALIGN_LEFT,  button.icon) + buttonRightMargin;
             bottomMenuPosX = ui3dsDrawStringWithNoWrapping(settings3DS.SecondScreen, bottomMenuPosX, SCREEN_HEIGHT - 17, bottomMenuPosX + 100, SCREEN_HEIGHT, Themes[static_cast<int>(settings3DS.Theme)].menuBottomBarTextColor, HALIGN_LEFT, button.label) + buttonLeftMargin;
@@ -1022,7 +1064,23 @@ int menu3dsMenuSelectItem(SMenuTab& dialogTab, bool& isDialog, int& currentMenuT
             returnResult = MENU_ENTRY_CONTEXT_MENU;
             break;
         }
-        
+
+        // X puts a row back to the value it names as its neutral. Only the
+        // depth sliders name one, so this does not take X away from the file
+        // tab above, and does nothing on any other row.
+        if (keysDown & KEY_X && !isDialog && !menu3dsIsFileTab(currentMenuTab, menuTabs) &&
+            menu3dsSelectedItemIsResettable(currentTab))
+        {
+            SMenuItem& item = currentTab->MenuItems[currentTab->SelectedItemIndex];
+
+            if (item.Value != item.ResetValue)
+            {
+                item.SetValue(item.ResetValue);
+                secondScreenDirty = true;
+            }
+        }
+
+
         if ((keysDown & KEY_RIGHT) || (keysDown & KEY_R) || ((thisKeysHeld & KEY_RIGHT) && (framesDKeyHeld > 15) && (framesDKeyHeld % 2 == 0)))
         {
             if (!isDialog)

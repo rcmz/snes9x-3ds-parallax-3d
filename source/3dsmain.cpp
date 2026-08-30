@@ -924,6 +924,11 @@ void makeDepth3DMenu(std::vector<SMenuItem>& items) {
         // set is shown. The other arrangement's pictures come out black,
         // because the frame on screen was not drawn by it.
         items.back().PreviewSlot = slot;
+
+        // Flat is a slider's neutral, and the range is wide enough either side
+        // of it that walking back by hand is a long press. X puts it there.
+        items.back().HasResetValue = true;
+        items.back().ResetValue = 0;
     }
 
     // The backdrop takes no depth -- it is one colour filling the screen, and
