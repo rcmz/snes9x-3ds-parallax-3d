@@ -1684,15 +1684,31 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 
 			// A background stores one tile per cell, so giving its two tile
 			// priorities different depths slides those cells apart and uncovers
-			// a strip with nothing behind it. Extending the nearest tile of the
-			// low priority across each boundary fills that strip with the
-			// continuation of whatever it belonged to. Both sides are filled,
-			// because the two eyes pull apart in opposite directions and share
-			// this geometry.
+			// a strip with nothing behind it. The strip is closed by carrying
+			// the far plane a little further than its own cells reach: every
+			// cell that borders it lends its edge back, drawn a second time at
+			// the far plane's depth.
+			//
+			// What that second copy holds is the cell's own pixels, not a
+			// neighbour's. A cell's edge is exactly what the frame showed in
+			// that place before any depth was applied, so the strip keeps the
+			// picture it already had -- and a cell transparent at its edge lends
+			// nothing, which is the point of doing it this way. A tile standing
+			// clear of the surface behind it, a pillar against the sky, has a
+			// real silhouette there, and pulling the planes apart is meant to
+			// uncover more sky beside it rather than more ground.
+			//
+			// Both sides of every boundary are lent, because the two eyes pull
+			// apart in opposite directions and share this geometry. Only one of
+			// the two is uncovered in a given eye; the other lands behind the
+			// near cell, which hides it wherever that cell is opaque -- and
+			// wherever it is not, what shows is that cell's own edge rather than
+			// something borrowed from further off.
 			const int fillWidth = gpu3dsGetPriorityFillWidth(bg, DEPTH3D_FAMILY_OF(PPU.BGMode));
 
-			int32 fillTile = 0;
-			bool haveFillTile = false;
+			// The high-priority cells just passed, most recent first, so the low
+			// priority can be carried back over them once it resumes.
+			int32 highTile[PRIORITY_FILL_MAX_CELLS] = { 0 };
 			int fillForward = 0;    // cells still to extend into after a low-priority run
 			int highRun = 0;        // consecutive high-priority cells seen so far
 
@@ -1735,8 +1751,11 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 					{
 						if (tpriority == 0)
 						{
-							// Extend back over the high-priority cells just passed.
-							for (int back = 1; back * 8 - 8 < fillWidth && back <= highRun; back++)
+							// The low priority resumes here, so it is carried
+							// back over the high-priority cells just passed --
+							// each of them lending the edge nearest this cell.
+							for (int back = 1; back * 8 - 8 < fillWidth && back <= highRun
+								&& back <= PRIORITY_FILL_MAX_CELLS; back++)
 							{
 								int32 width = fillWidth - (back - 1) * 8;
 								if (width > 8) width = 8;
@@ -1745,18 +1764,18 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 									tileSize, tileShift, paletteShift, paletteMask, startPalette, directColourMode,
 									variantPossible,
 									0, depth0, depth1,
-									modifiedTile, sX - back * 8, sY, VirtAlign, Lines, stretchedTy,
+									highTile[back - 1], sX - back * 8, sY, VirtAlign, Lines, stretchedTy,
 									8 - width, 8);
 							}
 
-							fillTile = modifiedTile;
-							haveFillTile = true;
 							fillForward = (fillWidth + 7) >> 3;
 							highRun = 0;
 						}
 						else
 						{
-							if (fillForward > 0 && haveFillTile)
+							// The low priority stopped at the cell before, so
+							// this cell lends the edge nearest that one.
+							if (fillForward > 0)
 							{
 								int32 width = fillWidth - highRun * 8;
 								if (width > 8) width = 8;
@@ -1765,11 +1784,15 @@ inline void __attribute__((always_inline)) S9xDrawBackgroundHardwarePriority0Inl
 									tileSize, tileShift, paletteShift, paletteMask, startPalette, directColourMode,
 									variantPossible,
 									0, depth0, depth1,
-									fillTile, sX, sY, VirtAlign, Lines, stretchedTy,
+									modifiedTile, sX, sY, VirtAlign, Lines, stretchedTy,
 									0, width);
 
 								fillForward--;
 							}
+
+							for (int i = PRIORITY_FILL_MAX_CELLS - 1; i > 0; i--)
+								highTile[i] = highTile[i - 1];
+							highTile[0] = modifiedTile;
 
 							highRun++;
 						}

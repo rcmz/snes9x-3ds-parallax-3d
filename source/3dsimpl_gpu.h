@@ -381,17 +381,23 @@ static inline void gpu3dsGetStereoEdgeMask(gfx3dSide_t side, int *left, int *rig
 
 void gpu3dsDrawSnesScreenForEye(gfx3dSide_t side);
 
+// How many cells a priority boundary's strip can reach across.
+// A cell lends at most its own eight pixels, and the strip is at
+// widest the two depths at opposite ends of their travel.
+#define PRIORITY_FILL_MAX_CELLS     ((2 * DEPTH3D_SHIFT_MAX + 7) / 8)
+
 //---------------------------------------------------------
 // How far a background's two tile priorities pull apart, in
 // pixels, when the low priority is the one sitting further back.
 //
-// Only the priority that is further back can sensibly continue
-// into the gap between them, and extending the low priority is
-// safe because it also draws behind the high one, so the fill
-// stays hidden wherever the high priority is opaque. The
-// opposite arrangement -- the high priority further back -- would
-// have to paint over the low priority to fill anything, which
-// would cost more than the gap does, so it is left alone.
+// Only the priority that is further back can be carried into the
+// gap between them. The low priority can, because it draws behind
+// the high one: the copy that is not the one uncovered this eye
+// lands behind a high-priority cell and is hidden wherever that
+// cell is opaque. The opposite arrangement -- the high priority
+// further back -- would have to paint its copy over the low
+// priority, since the hardware still composites it in front, and
+// that costs more than the gap does. So it is left alone.
 //---------------------------------------------------------
 static inline int gpu3dsGetPriorityFillWidth(int bg, int family)
 {
