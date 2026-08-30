@@ -29,7 +29,7 @@ This core is based on **snes9x 1.43**, which uses the older, less accurate SNES 
 
 A slot given a depth slides sideways between the two eyes, so it stops short of
 one edge of one eye. What happens there is the **Edge cropping** setting, and
-none of its three answers is free.
+none of its five answers is free.
 
 By default each slot's geometry is cut back to the visible screen before the
 shift moves it, so the slot runs out over a strip exactly as wide as its own
@@ -41,6 +41,13 @@ under you when a game changes mode. It costs a few pixels from every slot. **Non
 draws the tiles a game keeps just outside the screen, which are valid only where
 it meant to draw them, and whose overhang follows that layer's scroll -- so that
 strip can step in and out down the frame.
+
+Those three leave that strip in one eye only, which is the eye whose layer did
+not move away from that edge: it has content there that the other eye has
+nothing to fuse with, and a region only one eye can see reads as a shimmer along
+the frame rather than as depth. **Per layer, both** and **Whole frame, both**
+take the same strip out of both eyes at both edges instead, at the cost of the
+picture the second strip covers.
 
 Mode 7 encodes depth as a single bit rather than one of the interleaved slots,
 so its planes take no depth at all.

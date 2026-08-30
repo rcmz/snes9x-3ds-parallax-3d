@@ -162,11 +162,22 @@ the next time the menu is opened.
 A slot with depth moves sideways between the eyes, so it stops short of one edge
 of one eye and something has to give there. **Edge cropping** decides what.
 
+The gap itself is not a choice: a layer that has been cut back to the screen and
+then shifted simply runs out at the edge it moved away from. What the setting
+decides is what fills it, and -- for the two *both* choices -- whether the other
+eye gives up the same strip.
+
 * **Per layer** (the default) cuts each slot's geometry back to the visible
   screen before the shift moves it. The slot then runs out at one edge over a
   strip exactly as wide as its own shift, straight down the frame, and whatever
   sits behind it shows through there. A slot left at `0` keeps the full width
   whatever its neighbours are set to.
+* **Per layer, both** does the same and then takes the slot's own shift off the
+  other end as well, in both eyes, so a slot ends up covering the same strip of
+  screen in both and only its content slides within it. Nothing is left that one
+  eye can see and the other cannot. It costs a slot twice its shift in width,
+  and costs nothing at all to the slots left at `0`, which still reach both
+  edges.
 * **Whole frame** leaves one strip undrawn per eye instead -- the right eye at
   its left edge, the left eye at its right -- as wide as the largest shift in
   the set of sliders the frame was drawn with. Nothing shows through it at all,
@@ -176,6 +187,12 @@ of one eye and something has to give there. **Edge cropping** decides what.
   planes, and sizing it by those would change the width of the picture every
   time a game changed mode. The other set is left out of it, since its depths
   have no part in this frame.
+* **Whole frame, both** takes that same widest strip off all four edges, so both
+  eyes keep the same window in the same place. It gives up the most picture of
+  the five, and is the only one where the two eyes' pictures are the same width
+  and sit at the same place on the screen: the plain **Whole frame** trims each
+  eye by a wide strip at one edge and a narrow one at the other, which leaves
+  the frame itself carrying a disparity nothing in the scene asked for.
 * **None** draws the tiles anyway. A game keeps its tilemap valid only where it
   means to draw, so what appears is whatever it last left there: real scenery in
   a game whose map wraps, unrelated tiles in one that reuses the space. How far
@@ -185,7 +202,8 @@ of one eye and something has to give there. **Edge cropping** decides what.
 
 Cutting the tiles back happens while the frame is drawn, so changing to or from
 **None** shows on the next frame the game draws rather than on the paused one.
-**Whole frame** applies to the paused frame immediately.
+The rest are decided as the frame is put on screen and apply to the paused frame
+immediately.
 
 ### Using the sliders
 
